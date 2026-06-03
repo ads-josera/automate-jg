@@ -1,0 +1,12 @@
+name: Aseguramiento Automation
+type: module
+description: Enterprise document automation for insurance workflows, email ingestion, Excel parsing, PDF overlays, exports, and auditability.
+package: Custom
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:datetime_range
+  - drupal:file
+  - drupal:options
+  - drupal:telephone
+  - drupal:user
+  - drupal:views

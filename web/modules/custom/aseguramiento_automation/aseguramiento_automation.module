@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\user\UserInterface;
+
+/**
+ * @file
+ * Runtime hooks for Aseguramiento Automation.
+ */
+
+/**
+ * Implements hook_cron().
+ */
+function aseguramiento_automation_cron(): void {
+  \Drupal::service('aseguramiento_automation.cron_subscriber')->pollMailAccounts();
+}
+
+/**
+ * Implements hook_page_attachments().
+ */
+function aseguramiento_automation_page_attachments(array &$attachments): void {
+  $attachments['#attached']['library'][] = 'aseguramiento_automation/login';
+  $attachments['#attached']['html_head_link'][] = [
+    [
+      'rel' => 'stylesheet',
+      'href' => '/modules/custom/aseguramiento_automation/css/login.css',
+    ],
+    TRUE,
+  ];
+}
+
+/**
+ * Implements hook_mail().
+ */
+function aseguramiento_automation_mail(string $key, &$message, array $params): void {
+  if ($key !== 'constancia_pdf') {
+    return;
+  }
+  $message['subject'] = $params['subject'] ?? 'Constancia generada';
+  $message['body'][] = $params['body'] ?? '';
+  if (!empty($params['is_html'])) {
+    $message['headers']['Content-Type'] = 'text/html; charset=UTF-8';
+  }
+  if (!empty($params['cc'])) {
+    $message['headers']['Cc'] = implode(', ', (array) $params['cc']);
+  }
+  if (!empty($params['bcc'])) {
+    $message['headers']['Bcc'] = implode(', ', (array) $params['bcc']);
+  }
+  if (!empty($params['attachments'])) {
+    $message['params']['attachments'] = $params['attachments'];
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the user login form.
+ */
+function aseguramiento_automation_form_user_login_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  $form['#attached']['library'][] = 'aseguramiento_automation/login';
+  $form['#attributes']['class'][] = 'aseguramiento-login-form';
+  $form['#prefix'] = '<div class="aseguramiento-login" aria-label="Acceso"><section class="aseguramiento-login__panel"><div class="aseguramiento-login__content"><img class="aseguramiento-login__logo" src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div class="aseguramiento-login__heading"><div>Automatización y Generación</div><div>Solicitud de Constancias</div></div><div class="aseguramiento-login__form-card">';
+  $form['#suffix'] = '</div></div></section><section class="aseguramiento-login__visual" aria-hidden="true"></section></div>';
+
+  if (isset($form['name'])) {
+    $form['name']['#title'] = t('Usuario');
+    $form['name']['#attributes']['placeholder'] = t('Usuario');
+    $form['name']['#attributes']['autocomplete'] = 'username';
+  }
+  if (isset($form['pass'])) {
+    $form['pass']['#title'] = t('Contraseña');
+    $form['pass']['#attributes']['placeholder'] = t('Contraseña');
+    $form['pass']['#attributes']['autocomplete'] = 'current-password';
+  }
+  if (isset($form['actions']['submit'])) {
+    $form['actions']['submit']['#value'] = t('Acceso');
+  }
+  $form['#submit'][] = 'aseguramiento_automation_user_login_redirect_submit';
+}
+
+/**
+ * Redirects assurance managers to the operational dashboard after login.
+ */
+function aseguramiento_automation_user_login_redirect_submit(array &$form, FormStateInterface $form_state): void {
+  $request = \Drupal::request();
+  if ($request->request->has('destination') || $request->query->has('destination')) {
+    return;
+  }
+
+  $account = \Drupal::currentUser();
+  if (in_array('gestor_aseguramiento', $account->getRoles(), TRUE)) {
+    $form_state->setRedirect('aseguramiento_automation.dashboard');
+  }
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function aseguramiento_automation_user_login(UserInterface $account): void {
+  if (in_array('gestor_aseguramiento', $account->getRoles(), TRUE)) {
+    \Drupal::logger('aseguramiento_automation')->info('Gestor Aseguramiento user @uid logged in.', ['@uid' => $account->id()]);
+  }
+}
+
+/**
+ * Adds standalone chrome only for operational assurance managers.
+ */
+function aseguramiento_automation_standalone_classes(array $classes): array {
+  $account = \Drupal::currentUser();
+  $roles = $account->getRoles();
+  $is_site_admin = (int) $account->id() === 1
+    || in_array('administrator', $roles, TRUE)
+    || $account->hasPermission('administer site configuration');
+
+  if (in_array('gestor_aseguramiento', $roles, TRUE) && !$is_site_admin) {
+    $classes[] = 'aseguramiento-standalone';
+  }
+
+  return $classes;
+}
+
+/**
+ * Implements hook_entity_view_alter().
+ */
+function aseguramiento_automation_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display): void {
+  if (!$entity instanceof UserInterface || \Drupal::routeMatch()->getRouteName() !== 'entity.user.canonical') {
+    return;
+  }
+
+  $account = \Drupal::currentUser();
+  if (!in_array('gestor_aseguramiento', $account->getRoles(), TRUE) && !$account->hasPermission('view aseguramiento dashboard')) {
+    return;
+  }
+
+  $dashboard_url = Url::fromRoute('aseguramiento_automation.dashboard')->toString();
+  $constancias_url = Url::fromRoute('entity.aseguramiento_constancia.collection')->toString();
+  $logout_url = Url::fromRoute('user.logout')->toString();
+
+  $build['#attached']['library'][] = 'aseguramiento_automation/admin';
+  $classes = implode(' ', aseguramiento_automation_standalone_classes(['aseguramiento-dashboard', 'aseguramiento-user-page']));
+  $build['#prefix'] = '<div class="' . $classes . '"><section class="aseguramiento-dashboard-hero aseguramiento-dashboard-hero--compact"><div class="aseguramiento-dashboard-hero__brand"><img src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div><span>Cuenta de usuario</span><strong>Mi cuenta</strong></div></div><div class="aseguramiento-dashboard-hero__actions"><a class="aseguramiento-action-button" href="' . $dashboard_url . '">Panel</a><a class="aseguramiento-action-button" href="' . $constancias_url . '">Constancias</a><a class="aseguramiento-action-button aseguramiento-action-button--logout" href="' . $logout_url . '">Cerrar sesión</a></div></section><section class="aseguramiento-panel aseguramiento-user-panel"><div class="aseguramiento-panel__header"><div><span>Perfil</span><h2>Datos de la cuenta</h2></div></div><div class="aseguramiento-user-panel__body">';
+  $build['#suffix'] = '</div></section><footer class="aseguramiento-powered-footer">Powered by Josera MKT</footer></div>';
+}

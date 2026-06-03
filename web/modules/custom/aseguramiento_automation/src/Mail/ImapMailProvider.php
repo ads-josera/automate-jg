@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\aseguramiento_automation\Mail;
+
+use Drupal\aseguramiento_automation\Service\ImapService;
+
+/**
+ * Legacy IMAP fallback provider.
+ */
+final class ImapMailProvider implements MailProviderInterface {
+
+  public function __construct(private readonly ImapService $imap) {
+  }
+
+  public function id(): string {
+    return 'imap';
+  }
+
+  public function fetchMessages(array $account, int $limit = 25): array {
+    return $this->imap->fetchMessages($account, $limit);
+  }
+
+  public function downloadAttachments(array $account, array $message): array {
+    return $this->imap->downloadAttachments($account, $message);
+  }
+
+  public function markProcessed(array $account, array $message): void {
+    $this->imap->markProcessed($account, $message);
+  }
+
+  public function moveMessage(array $account, array $message, string $folder): void {
+    $this->imap->moveMessage($account, $message, $folder);
+  }
+
+}
+

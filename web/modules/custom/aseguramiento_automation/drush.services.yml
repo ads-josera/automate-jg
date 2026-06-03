@@ -1,0 +1,9 @@
+services:
+  aseguramiento_automation.commands:
+    class: Drupal\aseguramiento_automation\Drush\Commands\AseguramientoAutomationCommands
+    arguments:
+      - '@aseguramiento_automation.cron_subscriber'
+      - '@plugin.manager.queue_worker'
+      - '@queue'
+    tags:
+      - { name: drush.command }

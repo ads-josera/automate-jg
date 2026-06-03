@@ -1,0 +1,23 @@
+admin:
+  version: 1.x
+  css:
+    theme:
+      css/admin.css: {}
+
+template_builder:
+  version: 1.x
+  js:
+    js/template-builder.js: {}
+  css:
+    theme:
+      css/template-builder.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+
+login:
+  version: 1.x
+  css:
+    theme:
+      css/login.css: {}

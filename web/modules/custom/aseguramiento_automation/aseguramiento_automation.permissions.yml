@@ -1,0 +1,27 @@
+administer aseguramiento automation:
+  title: 'Administrar Aseguramiento Automation'
+  description: 'Configurar proveedores de correo, plantillas, mapeos, colas y seguridad.'
+  restrict access: true
+
+view aseguramiento dashboard:
+  title: 'Ver panel de automatización'
+
+view aseguramiento constancia:
+  title: 'Ver constancias'
+
+create aseguramiento constancia:
+  title: 'Crear constancias'
+
+edit aseguramiento constancia:
+  title: 'Editar constancias'
+
+delete aseguramiento constancia:
+  title: 'Eliminar constancias'
+  restrict access: true
+
+reprocess aseguramiento constancia:
+  title: 'Reprocesar constancias con error'
+  restrict access: true
+
+export aseguramiento data:
+  title: 'Exportar datos de automatización'

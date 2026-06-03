@@ -1,0 +1,29 @@
+aseguramiento_automation.dashboard:
+  route_name: aseguramiento_automation.dashboard
+  title: 'Panel'
+  base_route: aseguramiento_automation.dashboard
+
+aseguramiento_automation.export:
+  route_name: aseguramiento_automation.export
+  title: 'Exportaciones'
+  base_route: aseguramiento_automation.dashboard
+
+entity.aseguramiento_constancia.collection:
+  route_name: entity.aseguramiento_constancia.collection
+  title: 'Constancias'
+  base_route: aseguramiento_automation.dashboard
+
+aseguramiento_automation.settings:
+  route_name: aseguramiento_automation.settings
+  title: 'Configuración'
+  base_route: aseguramiento_automation.settings
+
+aseguramiento_automation.mail_accounts:
+  route_name: aseguramiento_automation.mail_accounts
+  title: 'Cuentas de correo'
+  base_route: aseguramiento_automation.settings
+
+aseguramiento_automation.pdf_templates:
+  route_name: aseguramiento_automation.pdf_templates
+  title: 'Plantillas PDF'
+  base_route: aseguramiento_automation.settings

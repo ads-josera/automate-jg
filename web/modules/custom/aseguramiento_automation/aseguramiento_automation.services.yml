@@ -1,0 +1,89 @@
+services:
+  logger.channel.aseguramiento_automation:
+    parent: logger.channel_base
+    arguments: ['aseguramiento_automation']
+
+  aseguramiento_automation.mail_provider_manager:
+    class: Drupal\aseguramiento_automation\Service\MailProviderManagerService
+    arguments:
+      - '@config.factory'
+      - '@http_client'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.microsoft_graph:
+    class: Drupal\aseguramiento_automation\Service\MicrosoftGraphService
+    arguments:
+      - '@http_client'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.imap:
+    class: Drupal\aseguramiento_automation\Service\ImapService
+    arguments:
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.email_parser:
+    class: Drupal\aseguramiento_automation\Service\EmailParserService
+    arguments:
+      - '@file_system'
+      - '@file.repository'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.excel_parser:
+    class: Drupal\aseguramiento_automation\Service\ExcelParserService
+    arguments:
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.validation:
+    class: Drupal\aseguramiento_automation\Service\ValidationService
+    arguments:
+      - '@entity_type.manager'
+
+  aseguramiento_automation.pdf_template:
+    class: Drupal\aseguramiento_automation\Service\PdfTemplateService
+    arguments:
+      - '@entity_type.manager'
+
+  aseguramiento_automation.coordinate_mapping:
+    class: Drupal\aseguramiento_automation\Service\CoordinateMappingService
+
+  aseguramiento_automation.pdf_overlay:
+    class: Drupal\aseguramiento_automation\Service\PdfOverlayService
+    arguments:
+      - '@file_system'
+      - '@file.repository'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.mail:
+    class: Drupal\aseguramiento_automation\Service\MailService
+    arguments:
+      - '@plugin.manager.mail'
+      - '@file_system'
+      - '@config.factory'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.export:
+    class: Drupal\aseguramiento_automation\Service\ExportService
+    arguments:
+      - '@entity_type.manager'
+
+  aseguramiento_automation.audit:
+    class: Drupal\aseguramiento_automation\Service\AuditService
+    arguments:
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.queue_manager:
+    class: Drupal\aseguramiento_automation\Service\QueueManagerService
+    arguments:
+      - '@queue'
+      - '@logger.channel.aseguramiento_automation'
+
+  aseguramiento_automation.cron_subscriber:
+    class: Drupal\aseguramiento_automation\EventSubscriber\CronSubscriber
+    arguments:
+      - '@config.factory'
+      - '@entity_type.manager'
+      - '@aseguramiento_automation.mail_provider_manager'
+      - '@aseguramiento_automation.queue_manager'
+      - '@logger.channel.aseguramiento_automation'
+    tags:
+      - { name: event_subscriber }

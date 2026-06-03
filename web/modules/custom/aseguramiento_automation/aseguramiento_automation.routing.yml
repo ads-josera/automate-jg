@@ -1,0 +1,129 @@
+aseguramiento_automation.dashboard:
+  path: '/admin/aseguramiento'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\DashboardController::dashboard'
+    _title: 'Panel de aseguramiento'
+  requirements:
+    _permission: 'view aseguramiento dashboard'
+
+aseguramiento_automation.settings:
+  path: '/admin/config/aseguramiento/settings'
+  defaults:
+    _form: '\Drupal\aseguramiento_automation\Form\AutomationSettingsForm'
+    _title: 'Configuración de automatización'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+
+aseguramiento_automation.mail_accounts:
+  path: '/admin/config/aseguramiento/mail-accounts'
+  defaults:
+    _entity_list: 'aseguramiento_mail_account'
+    _title: 'Cuentas de correo'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+
+aseguramiento_automation.pdf_templates:
+  path: '/admin/config/aseguramiento/pdf-templates'
+  defaults:
+    _entity_list: 'aseguramiento_pdf_template'
+    _title: 'Plantillas PDF'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+
+aseguramiento_automation.template_builder:
+  path: '/admin/config/aseguramiento/pdf-templates/{aseguramiento_pdf_template}/builder'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\TemplateBuilderController::builder'
+    _title_callback: '\Drupal\aseguramiento_automation\Controller\TemplateBuilderController::title'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+  options:
+    parameters:
+      aseguramiento_pdf_template:
+        type: entity:aseguramiento_pdf_template
+
+aseguramiento_automation.template_builder_save:
+  path: '/admin/config/aseguramiento/pdf-templates/{aseguramiento_pdf_template}/builder/save'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\TemplateBuilderController::save'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+  methods: [POST]
+  options:
+    parameters:
+      aseguramiento_pdf_template:
+        type: entity:aseguramiento_pdf_template
+
+aseguramiento_automation.template_preview:
+  path: '/admin/config/aseguramiento/pdf-templates/{aseguramiento_pdf_template}/preview.pdf'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\TemplateBuilderController::preview'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+  options:
+    parameters:
+      aseguramiento_pdf_template:
+        type: entity:aseguramiento_pdf_template
+
+aseguramiento_automation.template_preview_mapped:
+  path: '/admin/config/aseguramiento/pdf-templates/{aseguramiento_pdf_template}/preview-campos.pdf'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\TemplateBuilderController::previewMapped'
+  requirements:
+    _permission: 'administer aseguramiento automation'
+  options:
+    parameters:
+      aseguramiento_pdf_template:
+        type: entity:aseguramiento_pdf_template
+
+aseguramiento_automation.export:
+  path: '/admin/aseguramiento/export'
+  defaults:
+    _form: '\Drupal\aseguramiento_automation\Form\ExportForm'
+    _title: 'Exportar datos'
+  requirements:
+    _permission: 'export aseguramiento data'
+
+entity.aseguramiento_constancia.collection:
+  path: '/admin/aseguramiento/constancias'
+  defaults:
+    _entity_list: 'aseguramiento_constancia'
+    _title: 'Constancias'
+  requirements:
+    _permission: 'view aseguramiento constancia'
+
+entity.aseguramiento_constancia.canonical:
+  path: '/admin/aseguramiento/constancia/{aseguramiento_constancia}'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\ConstanciaController::view'
+    _title_callback: '\Drupal\Core\Entity\Controller\EntityController::title'
+  requirements:
+    _permission: 'view aseguramiento constancia'
+  options:
+    parameters:
+      aseguramiento_constancia:
+        type: entity:aseguramiento_constancia
+
+aseguramiento_automation.constancia_pdf:
+  path: '/admin/aseguramiento/constancia/{aseguramiento_constancia}/pdf'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\ConstanciaController::pdf'
+    _title: 'PDF generado'
+  requirements:
+    _permission: 'view aseguramiento constancia'
+  options:
+    parameters:
+      aseguramiento_constancia:
+        type: entity:aseguramiento_constancia
+
+aseguramiento_automation.reprocess:
+  path: '/admin/aseguramiento/constancia/{aseguramiento_constancia}/reprocess'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\DashboardController::reprocess'
+    _title: 'Reprocesar constancia'
+  requirements:
+    _permission: 'reprocess aseguramiento constancia'
+  options:
+    parameters:
+      aseguramiento_constancia:
+        type: entity:aseguramiento_constancia

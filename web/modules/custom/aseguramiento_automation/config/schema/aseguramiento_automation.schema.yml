@@ -1,0 +1,134 @@
+aseguramiento_automation.settings:
+  type: config_object
+  label: 'Aseguramiento Automation settings'
+  mapping:
+    cron_enabled:
+      type: boolean
+      label: 'Enable cron polling'
+    cron_mail_limit:
+      type: integer
+      label: 'Mail limit per account'
+    queue_batch_size:
+      type: integer
+      label: 'Queue batch size'
+    allowed_sender_domains:
+      type: sequence
+      label: 'Allowed sender domains'
+      sequence:
+        type: string
+    required_subject_keywords:
+      type: sequence
+      label: 'Required subject keywords'
+      sequence:
+        type: string
+    default_provider:
+      type: string
+      label: 'Default mail provider'
+    default_processed_folder:
+      type: string
+      label: 'Default processed folder'
+    default_error_folder:
+      type: string
+      label: 'Default error folder'
+    token_encryption_key:
+      type: string
+      label: 'Token encryption key'
+    storage_private_scheme:
+      type: string
+      label: 'Storage scheme'
+    email_reply_subject:
+      type: string
+      label: 'Reply subject'
+    email_reply_body:
+      type: text
+      label: 'Reply body'
+    email_reply_is_html:
+      type: boolean
+      label: 'Send reply body as HTML'
+    notification_emails:
+      type: sequence
+      label: 'Notification emails'
+      sequence:
+        type: email
+    notify_on_inbound_request:
+      type: boolean
+      label: 'Notify on inbound request'
+    copy_notifications_on_customer_reply:
+      type: boolean
+      label: 'Copy notification emails on customer reply'
+
+aseguramiento_automation.mail_account.*:
+  type: config_entity
+  label: 'Mail account'
+  mapping:
+    id:
+      type: string
+    label:
+      type: label
+    uuid:
+      type: string
+    status:
+      type: boolean
+    provider:
+      type: string
+    tenant_id:
+      type: string
+    client_id:
+      type: string
+    client_secret:
+      type: string
+    mailbox:
+      type: string
+    folder:
+      type: string
+    processed_folder:
+      type: string
+    error_folder:
+      type: string
+    imap_host:
+      type: string
+    imap_port:
+      type: integer
+    imap_encryption:
+      type: string
+    username:
+      type: string
+    password:
+      type: string
+    company_id:
+      type: string
+    insurer:
+      type: string
+    options:
+      type: mapping
+
+aseguramiento_automation.pdf_template.*:
+  type: config_entity
+  label: 'PDF template'
+  mapping:
+    id:
+      type: string
+    label:
+      type: label
+    uuid:
+      type: string
+    status:
+      type: boolean
+    insurer:
+      type: string
+    document_type:
+      type: string
+    version:
+      type: string
+    file_uri:
+      type: string
+    pages:
+      type: integer
+    mappings:
+      type: sequence
+      sequence:
+        type: mapping
+    company_id:
+      type: string
+    weight:
+      type: integer

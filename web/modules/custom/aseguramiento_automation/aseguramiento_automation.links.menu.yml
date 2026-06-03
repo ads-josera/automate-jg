@@ -1,0 +1,22 @@
+aseguramiento_automation.dashboard:
+  title: 'Aseguramiento Automation'
+  description: 'Panel operativo de automatización documental.'
+  route_name: aseguramiento_automation.dashboard
+  parent: system.admin
+  weight: -20
+
+aseguramiento_automation.settings:
+  title: 'Aseguramiento Automation'
+  description: 'Configurar proveedores y procesamiento documental.'
+  route_name: aseguramiento_automation.settings
+  parent: system.admin_config
+
+aseguramiento_automation.mail_accounts:
+  title: 'Cuentas de correo'
+  route_name: aseguramiento_automation.mail_accounts
+  parent: aseguramiento_automation.settings
+
+aseguramiento_automation.pdf_templates:
+  title: 'Plantillas PDF'
+  route_name: aseguramiento_automation.pdf_templates
+  parent: aseguramiento_automation.settings

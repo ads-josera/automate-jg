@@ -1,0 +1,57 @@
+cron_enabled: true
+cron_mail_limit: 25
+queue_batch_size: 50
+allowed_sender_domains: []
+required_subject_keywords: []
+default_provider: microsoft_graph
+default_processed_folder: Processed
+default_error_folder: Errors
+token_encryption_key: ''
+storage_private_scheme: private
+email_reply_subject: 'Constancia generada'
+email_reply_is_html: true
+notification_emails: []
+notify_on_inbound_request: true
+copy_notifications_on_customer_reply: true
+email_reply_body: |
+  <div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;">
+    <tr>
+      <td align="center" style="padding:28px 16px;">
+        <div style="padding:10px 0 28px;text-align:center;">
+          <img src="{{ logo_data_uri }}" width="190" alt="JG Mylard" style="display:inline-block;width:190px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
+        </div>
+        <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:620px;max-width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee5;">
+            <tr>
+              <td style="padding:24px 28px;background:#243a7b;color:#ffffff;">
+                <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">Constancia de aseguramiento</div>
+                <div style="font-size:13px;margin-top:6px;opacity:.9;">Folio {{ folio }}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px;">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.5;">Estimado(a) {{ nombre }},</p>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Adjuntamos la constancia generada para su solicitud de aseguramiento.</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:18px 0;background:#f8fafc;border:1px solid #e3e8ef;">
+                  <tr>
+                    <td style="padding:12px 14px;font-size:13px;color:#52606d;">Aseguradora</td>
+                    <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;">{{ aseguradora }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 14px;font-size:13px;color:#52606d;border-top:1px solid #e3e8ef;">Documento</td>
+                    <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;border-top:1px solid #e3e8ef;">{{ tipo_documento }}</td>
+                  </tr>
+                </table>
+                <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#52606d;">Este correo fue generado automáticamente. Para cualquier aclaración, por favor responda a este mismo mensaje.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e3e8ef;font-size:12px;color:#697586;">
+                Solicitud JG Mylard
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>

@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - aseguramiento_automation
+id: gestor_aseguramiento
+label: 'Gestor Aseguramiento'
+weight: 3
+is_admin: false
+permissions:
+  - 'access administration pages'
+  - 'view aseguramiento dashboard'
+  - 'view aseguramiento constancia'
+  - 'export aseguramiento data'
+  - 'reprocess aseguramiento constancia'
+

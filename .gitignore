@@ -21,13 +21,21 @@
 !/web/sites/default/files/sync/**
 /web/sites/simpletest/
 
+/web/sites/*/settings.php
 /web/sites/*/settings.local.php
+/web/sites/*/settings.*.php
+/web/sites/*/services.yml
 /web/sites/*/services.local.yml
+
+/private-files/
 
 /phpunit.xml
 /phpunit.xml.dist
 
 /node_modules/
 /coverage/
+
+/backups/
+/scripts/debug_*.php
 
 /docs/*.rtf

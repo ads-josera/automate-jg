@@ -1,0 +1,103 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\user\Entity\Role;
+use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
+
+/**
+ * Implements hook_install().
+ */
+function aseguramiento_automation_install(): void {
+  aseguramiento_automation_ensure_gestor_role();
+}
+
+/**
+ * Creates the Gestor Aseguramiento role on existing installations.
+ */
+function aseguramiento_automation_update_11001(): string {
+  aseguramiento_automation_ensure_gestor_role();
+  return 'Created or updated the Gestor Aseguramiento role.';
+}
+
+/**
+ * Adds the full client insurance request fields to constancias.
+ */
+function aseguramiento_automation_update_11002(): string {
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('aseguramiento_constancia');
+  $field_definitions = ConstanciaEntity::baseFieldDefinitions($entity_type);
+
+  foreach (aseguramiento_automation_solicitud_field_names() as $field_name) {
+    if ($definition_update_manager->getFieldStorageDefinition($field_name, 'aseguramiento_constancia')) {
+      continue;
+    }
+    $definition_update_manager->installFieldStorageDefinition($field_name, 'aseguramiento_constancia', 'aseguramiento_automation', $field_definitions[$field_name]);
+  }
+
+  return 'Added insurance request fields to constancia records.';
+}
+
+/**
+ * Adds the insured merchandise description field.
+ */
+function aseguramiento_automation_update_11003(): string {
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  if ($definition_update_manager->getFieldStorageDefinition('mercancia_asegurada', 'aseguramiento_constancia')) {
+    return 'The Mercancía asegurada field already exists.';
+  }
+
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('aseguramiento_constancia');
+  $field_definitions = ConstanciaEntity::baseFieldDefinitions($entity_type);
+  $definition_update_manager->installFieldStorageDefinition('mercancia_asegurada', 'aseguramiento_constancia', 'aseguramiento_automation', $field_definitions['mercancia_asegurada']);
+
+  return 'Added Mercancía asegurada to constancia records.';
+}
+
+/**
+ * Ensures the operational manager role exists with dashboard permissions.
+ */
+function aseguramiento_automation_ensure_gestor_role(): void {
+  $role = Role::load('gestor_aseguramiento');
+  if (!$role) {
+    $role = Role::create([
+      'id' => 'gestor_aseguramiento',
+      'label' => 'Gestor Aseguramiento',
+    ]);
+  }
+
+  foreach (aseguramiento_automation_gestor_permissions() as $permission) {
+    $role->grantPermission($permission);
+  }
+  $role->save();
+}
+
+/**
+ * Returns default permissions for the Gestor Aseguramiento role.
+ */
+function aseguramiento_automation_gestor_permissions(): array {
+  return [
+    'access administration pages',
+    'view aseguramiento dashboard',
+    'view aseguramiento constancia',
+    'export aseguramiento data',
+    'reprocess aseguramiento constancia',
+  ];
+}
+
+/**
+ * Returns insurance request field names added by update hooks.
+ */
+function aseguramiento_automation_solicitud_field_names(): array {
+  return array_merge(
+    array_keys(ConstanciaEntity::solicitudStringFields()),
+    array_keys(ConstanciaEntity::solicitudLongTextFields()),
+    array_keys(ConstanciaEntity::solicitudDateFields()),
+    array_keys(ConstanciaEntity::solicitudAmountFields()),
+    [
+      'mercancia_estado',
+      'moneda',
+      'acepta_informacion_veridica',
+    ],
+  );
+}

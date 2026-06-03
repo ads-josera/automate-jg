@@ -1,0 +1,17 @@
+entity.aseguramiento_mail_account.add_form:
+  route_name: entity.aseguramiento_mail_account.add_form
+  title: 'Agregar cuenta de correo'
+  appears_on:
+    - aseguramiento_automation.mail_accounts
+
+entity.aseguramiento_pdf_template.add_form:
+  route_name: entity.aseguramiento_pdf_template.add_form
+  title: 'Agregar plantilla PDF'
+  appears_on:
+    - aseguramiento_automation.pdf_templates
+
+entity.aseguramiento_constancia.add_form:
+  route_name: entity.aseguramiento_constancia.add_form
+  title: 'Agregar constancia'
+  appears_on:
+    - entity.aseguramiento_constancia.collection
