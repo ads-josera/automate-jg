@@ -47,6 +47,12 @@ final class AutomationSettingsForm extends ConfigFormBase {
       '#max' => 1000,
       '#default_value' => (int) $config->get('queue_batch_size') ?: 50,
     ];
+    $form['processing']['debug_mode'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Modo de depuración'),
+      '#description' => $this->t('Registra tiempos de ejecución, identificadores internos, rutas temporales y detalles técnicos del procesamiento. Mantener desactivado en operación normal.'),
+      '#default_value' => (bool) $config->get('debug_mode'),
+    ];
 
     $form['filters'] = [
       '#type' => 'details',
@@ -148,6 +154,7 @@ final class AutomationSettingsForm extends ConfigFormBase {
       ->set('cron_enabled', (bool) $form_state->getValue('cron_enabled'))
       ->set('cron_mail_limit', (int) $form_state->getValue('cron_mail_limit'))
       ->set('queue_batch_size', (int) $form_state->getValue('queue_batch_size'))
+      ->set('debug_mode', (bool) $form_state->getValue('debug_mode'))
       ->set('allowed_sender_domains', $this->linesToList((string) $form_state->getValue('allowed_sender_domains')))
       ->set('required_subject_keywords', $this->linesToList((string) $form_state->getValue('required_subject_keywords')))
       ->set('storage_private_scheme', $form_state->getValue('storage_private_scheme'))

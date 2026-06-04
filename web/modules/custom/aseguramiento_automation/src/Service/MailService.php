@@ -24,14 +24,22 @@ final class MailService {
   }
 
   public function sendConstancia(array $data, string $pdf_uri, array $settings): bool {
+    $start = microtime(TRUE);
     $data = $this->withSystemVariables($data);
     $to = (string) ($data['email'] ?? '');
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-      throw new \InvalidArgumentException('Cannot send constancia: invalid recipient email.');
+      throw new \InvalidArgumentException('No se puede enviar la constancia: el correo del destinatario no es válido.');
     }
     $pdf_path = $this->fileSystem->realpath($pdf_uri);
     if (!$pdf_path || !is_readable($pdf_path)) {
-      throw new \RuntimeException(sprintf('Cannot send constancia: PDF file is not readable (%s).', $pdf_uri));
+      throw new \RuntimeException(sprintf('No se puede enviar la constancia: el PDF no se puede leer (%s).', $pdf_uri));
+    }
+    if (!empty($settings['debug_mode'])) {
+      $this->logger->info('[Aseguramiento][Depuración] Preparando correo de constancia. Destinatario: @to. PDF URI: @uri. Ruta real: @path.', [
+        '@to' => $to,
+        '@uri' => $pdf_uri,
+        '@path' => $pdf_path,
+      ]);
     }
     $params = [
       'subject' => $this->renderTemplate((string) ($settings['email_reply_subject'] ?? 'Constancia generada'), $data),
@@ -47,23 +55,40 @@ final class MailService {
 
     if ($this->shouldSendWithSmtp($params)) {
       $sent = $this->sendWithPhpMailer($to, $params);
-      $this->logger->info('Constancia email to @to result: @result.', ['@to' => $to, '@result' => $sent ? 'sent' : 'failed']);
+      if ($sent) {
+        $this->logger->info('[Aseguramiento] Correo de constancia enviado correctamente a @to.', ['@to' => $to]);
+      }
+      else {
+        $this->logger->error('[Aseguramiento] Error al enviar constancia a @to. Detalle: el proveedor SMTP devolvió resultado fallido.', ['@to' => $to]);
+      }
+      if (!empty($settings['debug_mode'])) {
+        $this->logger->info('[Aseguramiento][Depuración] Envío SMTP terminado en @time ms.', [
+          '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
+        ]);
+      }
       return $sent;
     }
 
     $result = $this->mailManager->mail('aseguramiento_automation', 'constancia_pdf', $to, 'es', $params);
     $sent = !empty($result['result']);
-    $this->logger->info('Constancia email to @to result: @result.', ['@to' => $to, '@result' => $sent ? 'sent' : 'failed']);
+    if ($sent) {
+      $this->logger->info('[Aseguramiento] Correo de constancia enviado correctamente a @to.', ['@to' => $to]);
+    }
+    else {
+      $this->logger->error('[Aseguramiento] Error al enviar constancia a @to. Detalle: el sistema de correo de Drupal devolvió resultado fallido.', ['@to' => $to]);
+    }
     return $sent;
   }
 
   public function sendInboundRequestNotification(array $message, array $files, array $settings): bool {
     if (empty($settings['notify_on_inbound_request'])) {
+      $this->logger->info('[Aseguramiento] Notificación interna omitida porque está desactivada en configuración.');
       return TRUE;
     }
 
     $recipients = $this->notificationEmails($settings);
     if ($recipients === []) {
+      $this->logger->warning('[Aseguramiento] Notificación interna omitida porque no hay destinatarios configurados.');
       return TRUE;
     }
 
@@ -137,10 +162,16 @@ HTML;
       'is_html' => TRUE,
       'attachments' => $attachments,
     ]);
-    $this->logger->info('Inbound request notification result: @result to @to.', [
-      '@result' => $sent ? 'sent' : 'failed',
-      '@to' => implode(', ', $recipients),
-    ]);
+    if ($sent) {
+      $this->logger->info('[Aseguramiento] Correo de notificación interna enviado correctamente a @to.', [
+        '@to' => implode(', ', $recipients),
+      ]);
+    }
+    else {
+      $this->logger->error('[Aseguramiento] Error al enviar notificación interna a @to.', [
+        '@to' => implode(', ', $recipients),
+      ]);
+    }
     return $sent;
   }
 

@@ -58,6 +58,7 @@ final class EmailParserService {
         continue;
       }
       $safe_name = preg_replace('/[^a-zA-Z0-9._-]+/', '_', basename($name)) ?: 'attachment.xlsx';
+      $this->logger->info('[Aseguramiento] Procesando archivo: @file', ['@file' => $safe_name]);
       $file = $this->fileRepository->writeData((string) $attachment['content'], "{$directory}/{$safe_name}", FileExists::Rename);
       $file->setPermanent();
       $file->save();
@@ -65,7 +66,7 @@ final class EmailParserService {
     }
 
     if (!$files) {
-      $this->logger->warning('No valid Excel attachments were found for account @account.', ['@account' => $account_id]);
+      $this->logger->warning('[Aseguramiento] No se encontraron archivos Excel válidos para procesar en la cuenta @account.', ['@account' => $account_id]);
     }
     return $files;
   }

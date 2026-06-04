@@ -1,6 +1,7 @@
 cron_enabled: true
 cron_mail_limit: 25
 queue_batch_size: 50
+debug_mode: false
 allowed_sender_domains: []
 required_subject_keywords: []
 default_provider: microsoft_graph

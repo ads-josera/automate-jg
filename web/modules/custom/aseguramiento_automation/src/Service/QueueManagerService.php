@@ -25,8 +25,7 @@ final class QueueManagerService {
 
   public function enqueue(string $queue_name, array $payload): void {
     $this->queueFactory->get($queue_name)->createItem($payload + ['queued_at' => time()]);
-    $this->logger->info('Queued item for @queue.', ['@queue' => $queue_name]);
+    $this->logger->info('[Aseguramiento] Elemento agregado a la cola @queue.', ['@queue' => $queue_name]);
   }
 
 }
-

@@ -101,7 +101,7 @@ final class MicrosoftGraphService {
   private function accessToken(array $account): string {
     foreach (['tenant_id', 'client_id', 'client_secret'] as $required) {
       if (empty($account[$required])) {
-        throw new \InvalidArgumentException(sprintf('Microsoft Graph account is missing %s.', $required));
+        throw new \InvalidArgumentException(sprintf('La cuenta de Microsoft Graph no tiene configurado el dato requerido: %s.', $required));
       }
     }
     $response = $this->httpClient->request('POST', 'https://login.microsoftonline.com/' . rawurlencode((string) $account['tenant_id']) . '/oauth2/v2.0/token', [
@@ -115,11 +115,10 @@ final class MicrosoftGraphService {
     ]);
     $payload = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
     if (empty($payload['access_token'])) {
-      $this->logger->error('Microsoft Graph token response did not include an access token.');
-      throw new \RuntimeException('Microsoft Graph authentication failed.');
+      $this->logger->error('[Aseguramiento] La respuesta de Microsoft Graph no incluyó token de acceso.');
+      throw new \RuntimeException('Falló la autenticación con Microsoft Graph.');
     }
     return (string) $payload['access_token'];
   }
 
 }
-

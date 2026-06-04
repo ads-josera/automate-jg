@@ -25,11 +25,11 @@ final class PdfOverlayService {
 
   public function generate(PdfTemplate $template, array $data, CoordinateMappingService $mappingService): array {
     if (!class_exists(Fpdi::class)) {
-      throw new \RuntimeException('FPDI/TCPDF is required. Run composer require setasign/fpdi-tcpdf tecnickcom/tcpdf.');
+      throw new \RuntimeException('FPDI/TCPDF es requerido para generar PDFs.');
     }
     $source = $this->fileSystem->realpath($template->getFileUri());
     if (!$source || !is_readable($source)) {
-      throw new \RuntimeException('Base PDF is missing or not readable.');
+      throw new \RuntimeException('El PDF base no existe o no se puede leer.');
     }
 
     $pdf = new Fpdi('P', 'pt');
@@ -72,7 +72,7 @@ final class PdfOverlayService {
     $file = $this->fileRepository->writeData($binary, "{$directory}/{$filename}", FileExists::Rename);
     $file->setPermanent();
     $file->save();
-    $this->logger->info('Generated PDF @uri from template @template.', ['@uri' => $file->getFileUri(), '@template' => $template->id()]);
+    $this->logger->info('[Aseguramiento] PDF generado correctamente. Archivo: @uri. Plantilla: @template.', ['@uri' => $file->getFileUri(), '@template' => $template->id()]);
 
     return ['fid' => $file->id(), 'uri' => $file->getFileUri(), 'filename' => $file->getFilename()];
   }

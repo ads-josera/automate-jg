@@ -5,5 +5,6 @@ services:
       - '@aseguramiento_automation.cron_subscriber'
       - '@plugin.manager.queue_worker'
       - '@queue'
+      - '@logger.channel.aseguramiento_automation'
     tags:
       - { name: drush.command }

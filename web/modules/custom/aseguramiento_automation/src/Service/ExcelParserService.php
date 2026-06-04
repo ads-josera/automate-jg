@@ -66,7 +66,7 @@ final class ExcelParserService {
 
   public function parse(string $real_path): array {
     if (!class_exists(IOFactory::class)) {
-      throw new \RuntimeException('PhpSpreadsheet is required. Run composer require phpoffice/phpspreadsheet.');
+      throw new \RuntimeException('PhpSpreadsheet es requerido para leer archivos Excel.');
     }
     $reader = IOFactory::createReaderForFile($real_path);
     $reader->setReadDataOnly(TRUE);
@@ -99,7 +99,7 @@ final class ExcelParserService {
       }
     }
 
-    $this->logger->info('Parsed @count row(s) from Excel file @file.', ['@count' => count($rows), '@file' => $real_path]);
+    $this->logger->info('[Aseguramiento] Extracción de datos del archivo completada correctamente. Registros detectados: @count.', ['@count' => count($rows)]);
     return $rows;
   }
 

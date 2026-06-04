@@ -11,6 +11,7 @@ use Drupal\Core\Queue\RequeueException;
 use Drupal\Core\Queue\SuspendQueueException;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drush\Commands\DrushCommands;
+use Psr\Log\LoggerInterface;
 
 /**
  * Drush commands for local assurance automation testing.
@@ -21,6 +22,7 @@ final class AseguramientoAutomationCommands extends DrushCommands {
     private readonly CronSubscriber $cronSubscriber,
     private readonly QueueWorkerManagerInterface $queueWorkerManager,
     private readonly QueueFactory $queueFactory,
+    private readonly LoggerInterface $automationLogger,
   ) {
     parent::__construct();
   }
@@ -38,15 +40,23 @@ final class AseguramientoAutomationCommands extends DrushCommands {
     $this->io()->section('Consultando buzones');
     $this->cronSubscriber->pollMailAccounts();
 
+    $summary = [];
     foreach ([
       QueueManagerService::EMAIL_QUEUE => 'Procesamiento de correos',
       QueueManagerService::EXCEL_QUEUE => 'Lectura de Excel',
       QueueManagerService::PDF_QUEUE => 'Generación de PDF',
       QueueManagerService::MAIL_QUEUE => 'Envío de correo',
     ] as $queue_name => $label) {
-      $this->runQueue($queue_name, $label);
+      $summary[$queue_name] = $this->runQueue($queue_name, $label);
     }
 
+    $this->automationLogger->info("[Aseguramiento] Ejecución finalizada correctamente.\nResumen:\nCorreos procesados: @emails\nLecturas de archivo: @excels\nPDFs generados: @pdfs\nCorreos enviados: @sent\nErrores: @errors", [
+      '@emails' => $summary[QueueManagerService::EMAIL_QUEUE]['processed'] ?? 0,
+      '@excels' => $summary[QueueManagerService::EXCEL_QUEUE]['processed'] ?? 0,
+      '@pdfs' => $summary[QueueManagerService::PDF_QUEUE]['processed'] ?? 0,
+      '@sent' => $summary[QueueManagerService::MAIL_QUEUE]['processed'] ?? 0,
+      '@errors' => array_sum(array_column($summary, 'errors')),
+    ]);
     $this->io()->success('Ciclo de prueba completado.');
     return self::EXIT_SUCCESS;
   }
@@ -54,11 +64,12 @@ final class AseguramientoAutomationCommands extends DrushCommands {
   /**
    * Runs every available item in a Drupal queue.
    */
-  private function runQueue(string $queue_name, string $label): void {
+  private function runQueue(string $queue_name, string $label): array {
     $this->io()->section($label);
     $queue = $this->queueFactory->get($queue_name);
     $worker = $this->queueWorkerManager->createInstance($queue_name);
     $processed = 0;
+    $errors = 0;
 
     while ($item = $queue->claimItem(60)) {
       try {
@@ -77,12 +88,18 @@ final class AseguramientoAutomationCommands extends DrushCommands {
         break;
       }
       catch (\Throwable $e) {
+        $errors++;
         $queue->deleteItem($item);
         $this->io()->error(sprintf('Error en %s: %s', $queue_name, $e->getMessage()));
+        $this->automationLogger->error('[Aseguramiento] Error al ejecutar la cola @queue. Detalle: @error', [
+          '@queue' => $queue_name,
+          '@error' => $e->getMessage(),
+        ]);
       }
     }
 
     $this->io()->writeln(sprintf('Elementos procesados: %d', $processed));
+    return ['processed' => $processed, 'errors' => $errors];
   }
 
 }

@@ -11,6 +11,9 @@ aseguramiento_automation.settings:
     queue_batch_size:
       type: integer
       label: 'Queue batch size'
+    debug_mode:
+      type: boolean
+      label: 'Modo de depuración'
     allowed_sender_domains:
       type: sequence
       label: 'Allowed sender domains'

@@ -15,15 +15,26 @@ final class ImapService {
   }
 
   public function fetchMessages(array $account, int $limit = 25): array {
+    $account_id = (string) ($account['id'] ?? $account['mailbox'] ?? $account['username'] ?? 'desconocido');
+    $this->logger->info('[Aseguramiento] Iniciando conexión al buzón @account.', ['@account' => $account_id]);
     if (!function_exists('imap_open')) {
-      throw new \RuntimeException('The PHP IMAP extension is not installed.');
+      $this->logger->error('[Aseguramiento] Error de conexión IMAP. La extensión PHP IMAP no está instalada.');
+      throw new \RuntimeException('La extensión PHP IMAP no está instalada.');
     }
 
     $mailbox = $this->mailboxString($account);
     $connection = @imap_open($mailbox, (string) $account['username'], (string) $account['password']);
     if (!$connection) {
-      throw new \RuntimeException('Unable to open IMAP mailbox: ' . imap_last_error());
+      $error = imap_last_error() ?: 'Error desconocido.';
+      if (str_contains(strtolower($error), 'auth')) {
+        $this->logger->error('[Aseguramiento] Error de autenticación IMAP. Detalle: @error', ['@error' => $error]);
+      }
+      else {
+        $this->logger->error('[Aseguramiento] Error al conectar con el servidor IMAP. Detalle: @error', ['@error' => $error]);
+      }
+      throw new \RuntimeException('No fue posible abrir el buzón IMAP: ' . $error);
     }
+    $this->logger->info('[Aseguramiento] Conexión IMAP establecida correctamente con el buzón @account.', ['@account' => $account_id]);
 
     $ids = array_slice(imap_search($connection, 'UNSEEN') ?: [], 0, $limit);
     $messages = [];
@@ -49,13 +60,22 @@ final class ImapService {
   public function downloadAttachments(array $account, array $message): array {
     $connection = @imap_open($this->mailboxString($account), (string) $account['username'], (string) $account['password']);
     if (!$connection) {
-      throw new \RuntimeException('Unable to open IMAP mailbox: ' . imap_last_error());
+      throw new \RuntimeException('No fue posible abrir el buzón IMAP: ' . imap_last_error());
     }
     $number = (int) $message['id'];
     $structure = imap_fetchstructure($connection, $number);
     $attachments = [];
     $this->collectParts($connection, $number, $structure, '', $attachments);
     imap_close($connection);
+    if ($attachments === []) {
+      $this->logger->warning('[Aseguramiento] No se encontraron archivos adjuntos en el correo @id.', ['@id' => $message['id'] ?? '']);
+    }
+    else {
+      $this->logger->info('[Aseguramiento] Se encontraron @count archivos adjuntos en el correo @id.', [
+        '@count' => count($attachments),
+        '@id' => $message['id'] ?? '',
+      ]);
+    }
     return $attachments;
   }
 

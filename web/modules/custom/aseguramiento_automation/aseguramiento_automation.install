@@ -55,6 +55,17 @@ function aseguramiento_automation_update_11003(): string {
 }
 
 /**
+ * Adds the operational debug flag to global settings.
+ */
+function aseguramiento_automation_update_11004(): string {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  if ($config->get('debug_mode') === NULL) {
+    $config->set('debug_mode', FALSE)->save();
+  }
+  return 'Se agregó la opción Modo de depuración a la configuración de aseguramiento.';
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {

@@ -36,22 +36,40 @@ final class MailProviderManagerService {
 
   public function getProvider(string $provider_id): MailProviderInterface {
     if (!isset($this->providers[$provider_id])) {
-      throw new \InvalidArgumentException(sprintf('Unsupported mail provider "%s".', $provider_id));
+      throw new \InvalidArgumentException(sprintf('Proveedor de correo no soportado: "%s".', $provider_id));
     }
     return $this->providers[$provider_id];
   }
 
   public function fetchForAccount(array $account, ?int $limit = NULL): array {
     $provider = $this->getProvider($account['provider'] ?? 'microsoft_graph');
-    $limit ??= (int) $this->configFactory->get('aseguramiento_automation.settings')->get('cron_mail_limit') ?: 25;
+    $settings = $this->configFactory->get('aseguramiento_automation.settings');
+    $limit ??= (int) $settings->get('cron_mail_limit') ?: 25;
+    $debug = (bool) $settings->get('debug_mode');
+    $account_id = (string) ($account['id'] ?? $account['mailbox'] ?? 'desconocido');
+    $start = microtime(TRUE);
+
     $messages = $provider->fetchMessages($account, $limit);
-    $this->logger->info('Fetched @count message(s) from @account via @provider.', [
-      '@count' => count($messages),
-      '@account' => $account['id'] ?? $account['mailbox'] ?? 'unknown',
-      '@provider' => $provider->id(),
-    ]);
+    $count = count($messages);
+    if ($count > 0) {
+      $this->logger->info('[Aseguramiento] Se encontraron @count correos nuevos para procesar en el buzón @account.', [
+        '@count' => $count,
+        '@account' => $account_id,
+      ]);
+    }
+    else {
+      $this->logger->info('[Aseguramiento] No se encontraron correos pendientes de procesamiento en el buzón @account.', [
+        '@account' => $account_id,
+      ]);
+    }
+    if ($debug) {
+      $this->logger->info('[Aseguramiento][Depuración] Consulta de buzón terminada. Proveedor: @provider. Límite: @limit. Tiempo: @time ms.', [
+        '@provider' => $provider->id(),
+        '@limit' => $limit,
+        '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
+      ]);
+    }
     return $messages;
   }
 
 }
-
