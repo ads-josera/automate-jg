@@ -17,17 +17,17 @@
     "require": {
         "composer/installers": "^2.3",
         "drupal/coffee": "^2.0",
-        "drupal/core-composer-scaffold": "11.3.11",
-        "drupal/core-project-message": "11.3.11",
-        "drupal/core-recipe-unpack": "^11.3",
-        "drupal/core-recommended": "11.3.11",
+        "drupal/core-composer-scaffold": "11.4.5",
+        "drupal/core-project-message": "11.4.5",
+        "drupal/core-recipe-unpack": "^11.4",
+        "drupal/core-recommended": "11.4.5",
         "drupal/devel": "^5.5",
         "drupal/honeypot": "^2.2",
         "drupal/smtp": "^1.4",
-        "drupal/webform": "6.3.0-beta9",
+        "drupal/webform": "^6.3",
         "drush/drush": "^13.7",
-        "firebase/php-jwt": "^7.0",
-        "phpoffice/phpspreadsheet": "^5.7",
+        "firebase/php-jwt": "^7.1",
+        "phpoffice/phpspreadsheet": "^5.9",
         "setasign/fpdi": "^2.6",
         "tecnickcom/tcpdf": "^6.11"
     },
@@ -45,7 +45,8 @@
             "phpstan/extension-installer": true,
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "php-http/discovery": true,
-            "php-tuf/composer-integration": true
+            "php-tuf/composer-integration": true,
+            "symfony/runtime": true
         },
         "sort-packages": true
     },

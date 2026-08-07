@@ -255,6 +255,7 @@ final class TemplateBuilderController extends ControllerBase {
       'folio',
       'nombre',
       'aseguradora',
+      'fecha_emision',
     ], ConstanciaEntity::solicitudPdfFields());
   }
 
@@ -286,6 +287,7 @@ final class TemplateBuilderController extends ControllerBase {
       'folio' => 'Folio',
       'nombre' => 'Nombre',
       'aseguradora' => 'Aseguradora',
+      'fecha_emision' => 'Fecha de emisión',
       'mercancia_asegurada' => 'Mercancía asegurada',
       'mercancia_estado' => 'Mercancía',
       'moneda' => 'Moneda',

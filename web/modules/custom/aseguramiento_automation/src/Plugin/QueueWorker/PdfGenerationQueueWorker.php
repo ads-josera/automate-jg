@@ -76,6 +76,8 @@ final class PdfGenerationQueueWorker extends QueueWorkerBase implements Containe
       }
       $row['vigencia_inicio'] = (string) $entity->get('vigencia')->value;
       $row['vigencia_fin'] = (string) $entity->get('vigencia')->end_value;
+      $row['fecha_emision'] = date('j/m/Y g:iA');
+      $row['fecha_emision_iso'] = date('c');
       $template = $this->templateService->resolve($row);
       if (!$template) {
         $entity->set('status', 'error');

@@ -33,6 +33,11 @@ services:
     arguments:
       - '@logger.channel.aseguramiento_automation'
 
+  aseguramiento_automation.pdf_form_parser:
+    class: Drupal\aseguramiento_automation\Service\PdfFormParserService
+    arguments:
+      - '@logger.channel.aseguramiento_automation'
+
   aseguramiento_automation.validation:
     class: Drupal\aseguramiento_automation\Service\ValidationService
     arguments:

@@ -101,7 +101,13 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
         $this->logger->info('[Aseguramiento] Se encontraron @count archivos adjuntos.', ['@count' => count($attachments)]);
       }
 
-      $files = $this->emailParser->persistExcelAttachments($attachments, (string) ($account['id'] ?? 'default'));
+      $files = $this->emailParser->persistProcessableAttachments($attachments, (string) ($account['id'] ?? 'default'));
+      $excel_count = count(array_filter($files, static fn(array $file): bool => ($file['type'] ?? '') === 'excel'));
+      $pdf_count = count(array_filter($files, static fn(array $file): bool => ($file['type'] ?? '') === 'pdf'));
+      $this->logger->info('[Aseguramiento] Archivos listos para procesamiento. Excel: @excel. PDF rellenable: @pdf.', [
+        '@excel' => $excel_count,
+        '@pdf' => $pdf_count,
+      ]);
       $this->mailService->sendInboundRequestNotification($message, $files, $settings);
       foreach ($files as $file) {
         if ($debug) {

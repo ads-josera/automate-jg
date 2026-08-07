@@ -16,8 +16,19 @@ final class EmailParserService {
 
   private const EXCEL_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel.sheet.macroEnabled.12',
     'application/vnd.ms-excel',
     'application/octet-stream',
+  ];
+
+  private const PDF_MIME_TYPES = [
+    'application/pdf',
+    'application/acrobat',
+    'application/x-pdf',
+    'applications/vnd.pdf',
+    'application/octet-stream',
+    'text/pdf',
+    'text/x-pdf',
   ];
 
   public function __construct(
@@ -45,7 +56,7 @@ final class EmailParserService {
     return ['accepted' => $errors === [], 'errors' => $errors];
   }
 
-  public function persistExcelAttachments(array $attachments, string $account_id): array {
+  public function persistProcessableAttachments(array $attachments, string $account_id): array {
     $directory = 'private://aseguramiento/inbound/' . preg_replace('/[^a-z0-9_]+/i', '_', $account_id);
     $this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
     $files = [];
@@ -54,21 +65,38 @@ final class EmailParserService {
       $name = (string) ($attachment['name'] ?? '');
       $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
       $mime = (string) ($attachment['mime'] ?? '');
-      if (!in_array($extension, ['xls', 'xlsx'], TRUE) || !in_array($mime, self::EXCEL_MIME_TYPES, TRUE)) {
+      $type = match (TRUE) {
+        in_array($extension, ['xls', 'xlsx', 'xlsm'], TRUE) && in_array($mime, self::EXCEL_MIME_TYPES, TRUE) => 'excel',
+        $extension === 'pdf' && in_array($mime, self::PDF_MIME_TYPES, TRUE) => 'pdf',
+        default => '',
+      };
+      if ($type === '') {
         continue;
       }
-      $safe_name = preg_replace('/[^a-zA-Z0-9._-]+/', '_', basename($name)) ?: 'attachment.xlsx';
+      $safe_name = preg_replace('/[^a-zA-Z0-9._-]+/', '_', basename($name)) ?: 'attachment.' . $extension;
       $this->logger->info('[Aseguramiento] Procesando archivo: @file', ['@file' => $safe_name]);
       $file = $this->fileRepository->writeData((string) $attachment['content'], "{$directory}/{$safe_name}", FileExists::Rename);
       $file->setPermanent();
       $file->save();
-      $files[] = ['fid' => $file->id(), 'uri' => $file->getFileUri(), 'name' => $file->getFilename()];
+      $files[] = [
+        'fid' => $file->id(),
+        'uri' => $file->getFileUri(),
+        'name' => $file->getFilename(),
+        'type' => $type,
+      ];
     }
 
     if (!$files) {
-      $this->logger->warning('[Aseguramiento] No se encontraron archivos Excel válidos para procesar en la cuenta @account.', ['@account' => $account_id]);
+      $this->logger->warning('[Aseguramiento] No se encontraron archivos Excel o PDF rellenable válidos para procesar en la cuenta @account.', ['@account' => $account_id]);
     }
     return $files;
+  }
+
+  public function persistExcelAttachments(array $attachments, string $account_id): array {
+    return array_values(array_filter(
+      $this->persistProcessableAttachments($attachments, $account_id),
+      static fn(array $file): bool => ($file['type'] ?? '') === 'excel',
+    ));
   }
 
   private function containsAny(string $subject, array $keywords): bool {

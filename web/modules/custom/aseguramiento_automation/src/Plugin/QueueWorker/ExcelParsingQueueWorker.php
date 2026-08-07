@@ -6,6 +6,7 @@ namespace Drupal\aseguramiento_automation\Plugin\QueueWorker;
 
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
 use Drupal\aseguramiento_automation\Service\ExcelParserService;
+use Drupal\aseguramiento_automation\Service\PdfFormParserService;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drupal\aseguramiento_automation\Service\ValidationService;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -34,6 +35,7 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
     private readonly FileSystemInterface $fileSystem,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ExcelParserService $excelParser,
+    private readonly PdfFormParserService $pdfFormParser,
     private readonly ValidationService $validationService,
     private readonly QueueManagerService $queueManager,
     private readonly ConfigFactoryInterface $configFactory,
@@ -50,6 +52,7 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       $container->get('file_system'),
       $container->get('entity_type.manager'),
       $container->get('aseguramiento_automation.excel_parser'),
+      $container->get('aseguramiento_automation.pdf_form_parser'),
       $container->get('aseguramiento_automation.validation'),
       $container->get('aseguramiento_automation.queue_manager'),
       $container->get('config.factory'),
@@ -77,7 +80,8 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       $created = 0;
       $errors = 0;
       $storage = $this->entityTypeManager->getStorage('aseguramiento_constancia');
-      foreach ($this->excelParser->parse($real_path) as $row) {
+      $rows = $this->rowsFromFile($file, $real_path);
+      foreach ($rows as $row) {
         $account = (array) ($data['account'] ?? []);
         $message = (array) ($data['message'] ?? []);
         $validation = $this->validationService->validateRow($row);
@@ -135,6 +139,22 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       ]);
       throw $e;
     }
+  }
+
+  private function rowsFromFile(array $file, string $real_path): array {
+    $type = (string) ($file['type'] ?? '');
+    $extension = strtolower(pathinfo((string) ($file['name'] ?? $real_path), PATHINFO_EXTENSION));
+    if ($type === 'pdf' || $extension === 'pdf') {
+      $this->logger->info('[Aseguramiento] Iniciando lectura de PDF rellenable: @file.', [
+        '@file' => $file['name'] ?? basename($real_path),
+      ]);
+      return $this->pdfFormParser->parse($real_path);
+    }
+
+    $this->logger->info('[Aseguramiento] Iniciando lectura de Excel: @file.', [
+      '@file' => $file['name'] ?? basename($real_path),
+    ]);
+    return $this->excelParser->parse($real_path);
   }
 
   private function folio(array $row): string {

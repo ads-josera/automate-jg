@@ -97,10 +97,11 @@ final class MailService {
       $uri = (string) ($file['uri'] ?? '');
       $path = $uri !== '' ? $this->fileSystem->realpath($uri) : FALSE;
       if ($path && is_readable($path)) {
+        $type = (string) ($file['type'] ?? '');
         $attachments[] = [
           'filepath' => $path,
           'filename' => (string) ($file['name'] ?? basename($path)),
-          'filemime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'filemime' => $type === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ];
       }
     }
