@@ -1,5 +1,5 @@
-name: primer-drupal
-type: drupal10
+name: automate-jg
+type: drupal11
 docroot: web
 php_version: "8.4"
 webserver_type: nginx-fpm
@@ -9,11 +9,10 @@ additional_fqdns: []
 database:
     type: mariadb
     version: "11.8"
+webimage_extra_packages: ['php${DDEV_PHP_VERSION}-imap']
 use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
-webimage_extra_packages:
-    - php${DDEV_PHP_VERSION}-imap
 corepack_enable: false
 
 # Key features of DDEV's config.yaml:

@@ -3,6 +3,7 @@
 .vscode/
 
 /.ddev/db.sql.gz
+/.ddev/*.sql.gz
 /database-clean.sql.gz
 /public-files-clean.tar.gz
 /private-files-clean.tar.gz
