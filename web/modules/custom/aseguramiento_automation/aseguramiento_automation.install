@@ -66,6 +66,24 @@ function aseguramiento_automation_update_11004(): string {
 }
 
 /**
+ * Adds maritime and air general reference fields.
+ */
+function aseguramiento_automation_update_11005(): string {
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('aseguramiento_constancia');
+  $field_definitions = ConstanciaEntity::baseFieldDefinitions($entity_type);
+  $added = [];
+  foreach (['ref_maritimo', 'ref_aereo'] as $field_name) {
+    if ($definition_update_manager->getFieldStorageDefinition($field_name, 'aseguramiento_constancia')) {
+      continue;
+    }
+    $definition_update_manager->installFieldStorageDefinition($field_name, 'aseguramiento_constancia', 'aseguramiento_automation', $field_definitions[$field_name]);
+    $added[] = $field_name;
+  }
+  return $added ? 'Se agregaron los campos de referencia marítima y aérea.' : 'Los campos de referencia marítima y aérea ya existían.';
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {

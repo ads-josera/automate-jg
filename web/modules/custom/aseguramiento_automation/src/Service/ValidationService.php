@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\aseguramiento_automation\Service;
 
+use Drupal\aseguramiento_automation\Util\DateNormalizer;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 
 /**
@@ -36,7 +37,7 @@ final class ValidationService {
       }
     }
     foreach (['vigencia_inicio', 'vigencia_fin', 'solicitud_fecha', 'fecha_inicio_seguro'] as $date_field) {
-      if (!empty($row[$date_field]) && strtotime((string) $row[$date_field]) === FALSE) {
+      if (!empty($row[$date_field]) && DateNormalizer::toIso($row[$date_field]) === NULL) {
         $errors[$date_field][] = 'La fecha no es válida.';
       }
     }

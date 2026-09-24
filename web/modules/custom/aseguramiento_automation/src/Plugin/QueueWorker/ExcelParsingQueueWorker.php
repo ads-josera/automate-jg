@@ -9,6 +9,7 @@ use Drupal\aseguramiento_automation\Service\ExcelParserService;
 use Drupal\aseguramiento_automation\Service\PdfFormParserService;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drupal\aseguramiento_automation\Service\ValidationService;
+use Drupal\aseguramiento_automation\Util\DateNormalizer;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -167,8 +168,7 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
   }
 
   private function date(mixed $value): ?string {
-    $timestamp = strtotime((string) $value);
-    return $timestamp ? date('Y-m-d', $timestamp) : NULL;
+    return DateNormalizer::toIso($value);
   }
 
   private function solicitudValues(array $row): array {

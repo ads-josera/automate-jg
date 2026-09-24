@@ -310,8 +310,10 @@ final class ConstanciaEntity extends ContentEntityBase implements ConstanciaEnti
       'ref_terrestre' => t('Referencia terrestre'),
       'ref_talon_embarque' => t('Talón de embarque'),
       'ref_contenedor_caja' => t('N° de contenedor o caja'),
+      'ref_maritimo' => t('Referencia marítima'),
       'ref_maritimo_bl' => t('B/L marítimo'),
       'ref_maritimo_contenedor' => t('Contenedor marítimo'),
+      'ref_aereo' => t('Referencia aérea'),
       'ref_aereo_guia' => t('N° de guía aérea'),
       'ref_aereo_linea' => t('Línea aérea'),
     ];

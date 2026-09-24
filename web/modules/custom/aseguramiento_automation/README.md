@@ -156,8 +156,10 @@ Variables principales disponibles para colocar sobre el PDF:
 - `{{ ref_terrestre }}`
 - `{{ ref_talon_embarque }}`
 - `{{ ref_contenedor_caja }}`
+- `{{ ref_maritimo }}`
 - `{{ ref_maritimo_bl }}`
 - `{{ ref_maritimo_contenedor }}`
+- `{{ ref_aereo }}`
 - `{{ ref_aereo_guia }}`
 - `{{ ref_aereo_linea }}`
 - `{{ acepta_informacion_veridica }}`
