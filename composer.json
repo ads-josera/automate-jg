@@ -16,6 +16,7 @@
     ],
     "require": {
         "composer/installers": "^2.3",
+        "directorytree/imapengine": "^1.25",
         "drupal/coffee": "^2.0",
         "drupal/core-composer-scaffold": "11.4.7",
         "drupal/core-project-message": "11.4.7",

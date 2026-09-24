@@ -7,7 +7,7 @@ namespace Drupal\aseguramiento_automation\Mail;
 use Drupal\aseguramiento_automation\Service\ImapService;
 
 /**
- * Legacy IMAP fallback provider.
+ * IMAP provider (pure PHP client, identifies messages by UID).
  */
 final class ImapMailProvider implements MailProviderInterface {
 

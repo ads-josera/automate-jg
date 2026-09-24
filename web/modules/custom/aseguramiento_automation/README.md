@@ -6,7 +6,7 @@ Sistema enterprise de automatización documental para Drupal 10/11.
 
 - Lectura de correos por capa desacoplada de providers.
 - Microsoft Graph como proveedor principal para Microsoft 365.
-- IMAP como fallback para proveedores legacy.
+- IMAP (cliente PHP puro, sin extensión) para buzones cPanel/Dovecot y otros proveedores.
 - Procesamiento asíncrono con Queue API.
 - Parsing de Excel con PhpSpreadsheet.
 - Validación de datos de negocio.
@@ -23,7 +23,7 @@ Sistema enterprise de automatización documental para Drupal 10/11.
 El proyecto raíz debe incluir:
 
 ```bash
-composer require phpoffice/phpspreadsheet setasign/fpdi tecnickcom/tcpdf firebase/php-jwt
+composer require phpoffice/phpspreadsheet setasign/fpdi tecnickcom/tcpdf firebase/php-jwt directorytree/imapengine
 ```
 
 En este proyecto ya fueron instaladas.
@@ -101,9 +101,15 @@ Configura tenant, client ID, client secret, mailbox y carpetas desde:
 
 Nota: para entornos con MFA/delegated auth y refresh tokens por usuario, extiende `MicrosoftGraphService::accessToken()` con un storage cifrado de tokens por cuenta. La arquitectura ya separa esa responsabilidad.
 
-## IMAP fallback
+## IMAP
 
-Soporta host, puerto, SSL/TLS/none, usuario, contraseña y carpeta. Requiere la extensión PHP IMAP habilitada en el contenedor.
+Soporta host, puerto, cifrado, usuario, contraseña y carpeta. Usa la librería `directorytree/imapengine` (PHP puro): **no requiere la extensión PHP IMAP**, que salió del núcleo en PHP 8.4.
+
+- Cifrado: `ssl` = TLS implícito (puerto 993); `tls` = STARTTLS (puerto 143); `none` = sin cifrado y sin validar certificado (solo redes de confianza).
+- Los correos se identifican por **UID**, nunca por número de secuencia: los números de secuencia se recorren al mover/expurgar otro correo y hacían que un elemento en cola apuntara al correo de otro cliente.
+- Al descargar los adjuntos el correo se marca como leído (misma semántica que la implementación anterior): si el proceso falla después, no se vuelve a leer ni a notificar; el error queda en el registro.
+- Las carpetas de destino (`Processed`, `Errors`) se buscan por nombre y también como `INBOX.<nombre>` (espacio de nombres de Dovecot en cPanel). Si no existen, el correo queda en la bandeja marcado como leído y se registra una advertencia.
+- Prueba de integración contra un servidor IMAP real (GreenMail) en `scripts/imap_integration_check.php`.
 
 ## Plantillas PDF
 
@@ -226,7 +232,7 @@ La entidad está integrada con Views y listados administrativos.
 - Configurar SMTP real o un mail plugin con soporte de adjuntos.
 - Definir private file system en `settings.php`.
 - Crear app registration en Microsoft Entra ID.
-- Habilitar PHP IMAP solo si se usará fallback.
+- Crear en el buzón las carpetas `Processed` y `Errors` (o las configuradas en la cuenta).
 - Definir estrategia de token encryption con Key module o KMS externo.
 - Ejecutar colas con workers dedicados para cargas masivas.
 - Revisar `composer audit` y políticas internas de seguridad antes de producción.

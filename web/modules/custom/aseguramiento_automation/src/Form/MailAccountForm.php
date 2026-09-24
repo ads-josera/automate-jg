@@ -40,7 +40,7 @@ final class MailAccountForm extends EntityForm {
       '#title' => $this->t('Proveedor'),
       '#options' => [
         'microsoft_graph' => $this->t('Microsoft Graph'),
-        'imap' => $this->t('IMAP fallback'),
+        'imap' => $this->t('IMAP'),
       ],
       '#default_value' => $entity->get('provider') ?: 'microsoft_graph',
     ];
@@ -99,7 +99,11 @@ final class MailAccountForm extends EntityForm {
     $form['imap']['imap_encryption'] = [
       '#type' => 'select',
       '#title' => $this->t('Cifrado'),
-      '#options' => ['ssl' => 'SSL', 'tls' => 'TLS', 'none' => 'Ninguno'],
+      '#options' => [
+        'ssl' => $this->t('SSL/TLS (puerto 993)'),
+        'tls' => $this->t('STARTTLS (puerto 143)'),
+        'none' => $this->t('Ninguno, sin validar certificado (solo redes de confianza)'),
+      ],
       '#default_value' => $entity->get('imap_encryption') ?: 'ssl',
     ];
     foreach (['username' => 'Usuario', 'password' => 'Contraseña'] as $key => $label) {
