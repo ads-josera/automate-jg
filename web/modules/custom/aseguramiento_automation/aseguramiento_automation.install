@@ -84,6 +84,20 @@ function aseguramiento_automation_update_11005(): string {
 }
 
 /**
+ * Adds the batch id that groups constancias from the same inbound email.
+ */
+function aseguramiento_automation_update_11006(): string {
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  if ($definition_update_manager->getFieldStorageDefinition('lote', 'aseguramiento_constancia')) {
+    return 'El campo lote ya existía.';
+  }
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('aseguramiento_constancia');
+  $field_definitions = ConstanciaEntity::baseFieldDefinitions($entity_type);
+  $definition_update_manager->installFieldStorageDefinition('lote', 'aseguramiento_constancia', 'aseguramiento_automation', $field_definitions['lote']);
+  return 'Se agregó el campo lote para agrupar constancias por correo de origen.';
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {

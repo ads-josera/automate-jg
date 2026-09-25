@@ -53,31 +53,125 @@ final class MailService {
       ]],
     ];
 
-    if ($this->shouldSendWithSmtp($params)) {
-      $sent = $this->sendWithPhpMailer($to, $params);
-      if ($sent) {
-        $this->logger->info('[Aseguramiento] Correo de constancia enviado correctamente a @to.', ['@to' => $to]);
-      }
-      else {
-        $this->logger->error('[Aseguramiento] Error al enviar constancia a @to. Detalle: el proveedor SMTP devolvió resultado fallido.', ['@to' => $to]);
-      }
-      if (!empty($settings['debug_mode'])) {
-        $this->logger->info('[Aseguramiento][Depuración] Envío SMTP terminado en @time ms.', [
-          '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
-        ]);
-      }
-      return $sent;
-    }
-
-    $result = $this->mailManager->mail('aseguramiento_automation', 'constancia_pdf', $to, 'es', $params);
-    $sent = !empty($result['result']);
+    $sent = $this->deliver($to, $params);
     if ($sent) {
       $this->logger->info('[Aseguramiento] Correo de constancia enviado correctamente a @to.', ['@to' => $to]);
     }
     else {
-      $this->logger->error('[Aseguramiento] Error al enviar constancia a @to. Detalle: el sistema de correo de Drupal devolvió resultado fallido.', ['@to' => $to]);
+      $this->logger->error('[Aseguramiento] Error al enviar constancia a @to. Detalle: el proveedor de correo devolvió resultado fallido.', ['@to' => $to]);
+    }
+    if (!empty($settings['debug_mode'])) {
+      $this->logger->info('[Aseguramiento][Depuración] Envío terminado en @time ms.', [
+        '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
+      ]);
     }
     return $sent;
+  }
+
+  /**
+   * Sends ONE reply for an inbound email with several results.
+   *
+   * Used when the email produced more than one constancia or any failure; a
+   * single valid constancia keeps using sendConstancia() and the configured
+   * template.
+   *
+   * @param string $to
+   *   Comma-separated client recipients.
+   * @param array $ok
+   *   Generated constancias: each with "folio", "nombre" and "pdf_uri".
+   * @param array $failed
+   *   Items without PDF: each with "file", "folio", "nombre", "fields"
+   *   (sentences the client must fix) and "internal" (problems on our side).
+   */
+  public function sendBatchReply(string $to, array $ok, array $failed, array $settings): bool {
+    $attachments = [];
+    foreach ($ok as $item) {
+      $path = $this->fileSystem->realpath((string) $item['pdf_uri']);
+      if (!$path || !is_readable($path)) {
+        throw new \RuntimeException(sprintf('No se puede enviar la respuesta: el PDF no se puede leer (%s).', $item['pdf_uri']));
+      }
+      $attachments[] = ['filepath' => $path, 'filename' => basename((string) $item['pdf_uri']), 'filemime' => 'application/pdf'];
+    }
+    $total = count($ok) + count($failed);
+    $subject = match (TRUE) {
+      $ok === [] => 'Tu solicitud de aseguramiento requiere correcciones',
+      $failed === [] => sprintf('Se generaron tus %d constancias', count($ok)),
+      default => sprintf('Constancias generadas: %d de %d', count($ok), $total),
+    };
+    // The team always gets a copy when something needs follow-up.
+    $bcc = ($failed !== [] || !empty($settings['copy_notifications_on_customer_reply'])) ? $this->notificationEmails($settings) : [];
+    $sent = $this->deliver($to, [
+      'subject' => $subject,
+      'body' => $this->batchReplyBody($ok, $failed),
+      'is_html' => TRUE,
+      'bcc' => $bcc,
+      'attachments' => $attachments,
+    ]);
+    $context = ['@to' => $to, '@ok' => count($ok), '@failed' => count($failed)];
+    if ($sent) {
+      $this->logger->info('[Aseguramiento] Respuesta agrupada enviada a @to. Constancias: @ok. Con corrección o revisión: @failed.', $context);
+    }
+    else {
+      $this->logger->error('[Aseguramiento] Error al enviar la respuesta agrupada a @to. Constancias: @ok. Con corrección o revisión: @failed.', $context);
+    }
+    return $sent;
+  }
+
+  private function batchReplyBody(array $ok, array $failed): string {
+    $e = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $cell = 'padding:10px 14px;font-size:13px;border-top:1px solid #e3e8ef;';
+    $sections = '';
+
+    if ($ok !== []) {
+      $rows = '';
+      foreach ($ok as $item) {
+        $rows .= '<tr><td style="' . $cell . 'font-weight:700;color:#1f2933;">' . $e($item['folio']) . '</td><td style="' . $cell . 'color:#52606d;">' . $e($item['nombre']) . '</td></tr>';
+      }
+      $sections .= '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Adjuntamos ' . (count($ok) === 1 ? 'la constancia generada' : 'las ' . count($ok) . ' constancias generadas') . ':</p>'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;background:#f8fafc;border:1px solid #e3e8ef;">' . $rows . '</table>';
+    }
+
+    $to_fix = array_filter($failed, static fn(array $item): bool => $item['fields'] !== []);
+    $internal = array_filter($failed, static fn(array $item): bool => $item['fields'] === []);
+    if ($to_fix !== []) {
+      $blocks = '';
+      foreach ($to_fix as $item) {
+        $items = '';
+        foreach ($item['fields'] as $sentence) {
+          $items .= '<li style="margin:0 0 4px;">' . $e($sentence) . '</li>';
+        }
+        $who = trim($item['nombre']) !== '' ? ' (' . $e($item['nombre']) . ')' : '';
+        $blocks .= '<div style="padding:12px 14px;border-top:1px solid #f3d6d6;"><div style="font-size:13px;font-weight:700;color:#1f2933;">' . $e($item['file']) . $who . '</div><ul style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:#52606d;">' . $items . '</ul></div>';
+      }
+      $sections .= '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">' . (count($to_fix) === 1 ? 'Esta solicitud necesita corrección' : 'Estas solicitudes necesitan corrección') . ' antes de generar la constancia:</p>'
+        . '<div style="margin:0 0 12px;background:#fdf6f6;border:1px solid #f3d6d6;">' . $blocks . '</div>'
+        . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">Corrige los datos indicados en el formato y envíalo de nuevo a este mismo correo.</p>';
+    }
+    if ($internal !== []) {
+      $names = implode(', ', array_map(static fn(array $item): string => $e($item['folio'] ?: $item['file']), $internal));
+      $sections .= '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">No pudimos terminar ' . (count($internal) === 1 ? 'la solicitud' : 'las solicitudes') . ' ' . $names . ' por un problema de nuestro lado. No necesitas corregir nada: nuestro equipo ya fue notificado y te contactará.</p>';
+    }
+
+    $title = $ok === [] ? 'Tu solicitud requiere correcciones' : 'Constancias de aseguramiento';
+    return '<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">'
+      . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;"><tr><td align="center" style="padding:28px 16px;">'
+      . '<div style="padding:10px 0 28px;text-align:center;"><img src="cid:jgmylard-logo" width="190" alt="JG Mylard" style="display:inline-block;width:190px;max-width:70%;height:auto;border:0;"></div>'
+      . '<table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:620px;max-width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee5;">'
+      . '<tr><td style="padding:24px 28px;background:#243a7b;color:#ffffff;"><div style="font-size:20px;font-weight:700;">' . $e($title) . '</div></td></tr>'
+      . '<tr><td style="padding:28px 28px 6px;">' . $sections . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">Este correo fue generado automáticamente. Para cualquier aclaración, responde a este mismo mensaje.</p></td></tr>'
+      . '<tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e3e8ef;font-size:12px;color:#697586;">Solicitud JG Mylard</td></tr>'
+      . '</table></td></tr></table></div>';
+  }
+
+  /**
+   * Sends through the SMTP module path when active, else Drupal's mailer.
+   */
+  private function deliver(string $to, array $params): bool {
+    if ($this->shouldSendWithSmtp($params)) {
+      return $this->sendWithPhpMailer($to, $params);
+    }
+    $result = $this->mailManager->mail('aseguramiento_automation', 'constancia_pdf', $to, 'es', $params);
+    return !empty($result['result']);
   }
 
   public function sendInboundRequestNotification(array $message, array $files, array $settings): bool {

@@ -8,6 +8,7 @@ use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
 use Drupal\aseguramiento_automation\Service\ExcelParserService;
 use Drupal\aseguramiento_automation\Service\PdfFormParserService;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
+use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
 use Drupal\aseguramiento_automation\Service\ValidationService;
 use Drupal\aseguramiento_automation\Util\DateNormalizer;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -40,6 +41,7 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
     private readonly ValidationService $validationService,
     private readonly QueueManagerService $queueManager,
     private readonly ConfigFactoryInterface $configFactory,
+    private readonly SolicitudBatchService $batchService,
     private readonly LoggerInterface $logger,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -57,6 +59,7 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       $container->get('aseguramiento_automation.validation'),
       $container->get('aseguramiento_automation.queue_manager'),
       $container->get('config.factory'),
+      $container->get('aseguramiento_automation.solicitud_batch'),
       $container->get('logger.channel.aseguramiento_automation'),
     );
   }
@@ -64,6 +67,11 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
   public function processItem($data): void {
     $start = microtime(TRUE);
     $file = (array) ($data['file'] ?? []);
+    // Items queued before batches existed have no "lote"; they keep the
+    // previous behaviour (one reply per constancia, errors rethrown).
+    $lote = (string) ($data['lote'] ?? '');
+    $file_key = (string) ($data['file_key'] ?? '');
+    $created_ids = [];
     $debug = (bool) $this->configFactory->get('aseguramiento_automation.settings')->get('debug_mode');
 
     try {
@@ -107,11 +115,13 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
           'provider_correo' => $account['provider'] ?? '',
           'metadata' => ['source_row' => $row, 'message' => $message],
           'errores' => $validation['valid'] ? '' : json_encode($validation['errors'], JSON_UNESCAPED_UNICODE),
+          'lote' => $lote,
         ];
         $values += $this->solicitudValues($row);
         $entity = $storage->create($values);
         $entity->save();
         $created++;
+        $created_ids[] = (int) $entity->id();
         $this->logger->info('[Aseguramiento] Registro creado correctamente. ID: @id', ['@id' => $entity->id()]);
         if (!$validation['valid']) {
           $errors++;
@@ -122,6 +132,14 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
         }
         if ($validation['valid']) {
           $this->queueManager->enqueue(QueueManagerService::PDF_QUEUE, ['constancia_id' => $entity->id()]);
+        }
+      }
+      if ($lote !== '') {
+        if ($created_ids === []) {
+          $this->batchService->fileFailed($lote, $file_key, 'No encontramos datos de solicitud en el archivo. Usa el formato de solicitud y llena los campos antes de enviarlo.');
+        }
+        else {
+          $this->batchService->fileDone($lote, $file_key, $created_ids);
         }
       }
       $this->logger->info('[Aseguramiento] Lectura de archivo finalizada. Registros creados: @created. Errores: @errors.', [
@@ -138,7 +156,11 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       $this->logger->error('[Aseguramiento] Error al crear el registro de aseguramiento. Detalle: @error', [
         '@error' => $e->getMessage(),
       ]);
-      throw $e;
+      if ($lote === '') {
+        throw $e;
+      }
+      // Tell the client in the batch reply instead of losing the file.
+      $this->batchService->fileFailed($lote, $file_key, 'No pudimos leer el archivo. Verifica que sea el formato de solicitud (Excel o PDF rellenable) y que no esté dañado.');
     }
   }
 

@@ -82,6 +82,15 @@ services:
       - '@queue'
       - '@logger.channel.aseguramiento_automation'
 
+  aseguramiento_automation.solicitud_batch:
+    class: Drupal\aseguramiento_automation\Service\SolicitudBatchService
+    arguments:
+      - '@keyvalue.expirable'
+      - '@lock'
+      - '@uuid'
+      - '@aseguramiento_automation.queue_manager'
+      - '@logger.channel.aseguramiento_automation'
+
   aseguramiento_automation.cron_subscriber:
     class: Drupal\aseguramiento_automation\EventSubscriber\CronSubscriber
     arguments:

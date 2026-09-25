@@ -250,6 +250,7 @@ final class ConstanciaEntity extends ContentEntityBase implements ConstanciaEnti
       'plantilla_usada' => t('Plantilla usada'),
       'pdf_generado' => t('PDF generado'),
       'correo_origen' => t('Correo origen'),
+      'lote' => t('Lote (correo de origen)'),
       'excel_original' => t('Excel original'),
       'provider_correo' => t('Proveedor de correo'),
     ] as $name => $label) {

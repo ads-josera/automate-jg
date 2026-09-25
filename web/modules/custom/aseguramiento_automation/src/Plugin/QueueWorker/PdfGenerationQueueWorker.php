@@ -61,6 +61,7 @@ final class PdfGenerationQueueWorker extends QueueWorkerBase implements Containe
     $start = microtime(TRUE);
     $debug = (bool) $this->configFactory->get('aseguramiento_automation.settings')->get('debug_mode');
 
+    $entity = NULL;
     try {
       $entity = $this->entityTypeManager->getStorage('aseguramiento_constancia')->load($data['constancia_id'] ?? NULL);
       if (!$entity) {
@@ -106,13 +107,25 @@ final class PdfGenerationQueueWorker extends QueueWorkerBase implements Containe
           '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
         ]);
       }
-      $this->queueManager->enqueue(QueueManagerService::MAIL_QUEUE, ['constancia_id' => $entity->id()]);
+      // Constancias from a batch are answered together by the batch reply.
+      if ((string) $entity->get('lote')->value === '') {
+        $this->queueManager->enqueue(QueueManagerService::MAIL_QUEUE, ['constancia_id' => $entity->id()]);
+      }
     }
     catch (\Throwable $e) {
       $this->logger->error('[Aseguramiento] Error durante la generación del PDF. Detalle: @error', [
         '@error' => $e->getMessage(),
       ]);
-      throw $e;
+      if (!$entity) {
+        throw $e;
+      }
+      // Never leave it "validated": its batch would wait for a PDF forever.
+      $entity->set('status', 'error');
+      $entity->set('errores', trim((string) $entity->get('errores')->value . "\nNo fue posible generar el PDF: " . $e->getMessage()));
+      $entity->save();
+      if ((string) $entity->get('lote')->value === '') {
+        throw $e;
+      }
     }
   }
 

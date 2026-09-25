@@ -8,6 +8,7 @@ use Drupal\aseguramiento_automation\Service\EmailParserService;
 use Drupal\aseguramiento_automation\Service\MailService;
 use Drupal\aseguramiento_automation\Service\MailProviderManagerService;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
+use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
@@ -34,6 +35,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
     private readonly EmailParserService $emailParser,
     private readonly QueueManagerService $queueManager,
     private readonly MailService $mailService,
+    private readonly SolicitudBatchService $batchService,
     private readonly LoggerInterface $logger,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -49,6 +51,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
       $container->get('aseguramiento_automation.email_parser'),
       $container->get('aseguramiento_automation.queue_manager'),
       $container->get('aseguramiento_automation.mail'),
+      $container->get('aseguramiento_automation.solicitud_batch'),
       $container->get('logger.channel.aseguramiento_automation'),
     );
   }
@@ -109,7 +112,9 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
         '@pdf' => $pdf_count,
       ]);
       $this->mailService->sendInboundRequestNotification($message, $files, $settings);
-      foreach ($files as $file) {
+      // One batch per email: the client gets a single reply for all files.
+      $lote = $files !== [] ? $this->batchService->start($account, $message, $files) : NULL;
+      foreach (array_values($files) as $index => $file) {
         if ($debug) {
           $this->logger->info('[Aseguramiento][Depuración] Archivo persistido para cola Excel. FID: @fid. URI: @uri.', [
             '@fid' => $file['fid'] ?? 'no disponible',
@@ -120,6 +125,8 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
           'account' => $account,
           'message' => $message,
           'file' => $file,
+          'lote' => $lote,
+          'file_key' => SolicitudBatchService::fileKey($file, $index),
         ]);
       }
       $provider->markProcessed($account, $message);

@@ -52,7 +52,18 @@ El flujo está separado por responsabilidades:
 3. `EmailProcessingQueueWorker` descarga y valida adjuntos.
 4. `ExcelParsingQueueWorker` parsea Excel, valida y crea constancias.
 5. `PdfGenerationQueueWorker` resuelve plantilla y genera PDF.
-6. `MailSendingQueueWorker` responde al destinatario.
+6. `MailSendingQueueWorker` responde una sola vez por correo recibido (lote) con todos los PDF y lo que haya que corregir.
+
+### Respuesta al cliente: un correo por solicitud (lote)
+
+Cada correo recibido forma un **lote** (`SolicitudBatchService`, almacén key-value con caducidad de 30 días; cada constancia guarda su lote en el campo `lote`). El cliente recibe **una sola respuesta por correo enviado**, aunque adjunte varios archivos:
+
+- Un solo Excel válido: el correo configurado de siempre (asunto y plantilla de ajustes) con su PDF.
+- Varios archivos o alguno con errores: un correo con todos los PDF generados y, por archivo, qué corregir con las etiquetas del formato (`Util\SolicitudErrorFormatter`). El encargado (`notification_emails`) recibe copia oculta.
+- Archivo ilegible o sin datos: se informa en la misma respuesta en lugar de perderse.
+- Problemas internos (sin plantilla, fallo al generar el PDF): se avisa que no hay nada que corregir y que el equipo dará seguimiento.
+- La respuesta espera a que todo el lote termine (reintento diferido de la cola); tras 30 minutos responde con lo que haya. Nunca responde dos veces el mismo lote. Si el envío falla, reintenta hasta 5 veces.
+- Prueba de punta a punta: `scripts/batch_reply_check.php` (GreenMail + Mailpit).
 
 Servicios principales:
 
@@ -69,6 +80,7 @@ Servicios principales:
 - `ExportService`
 - `AuditService`
 - `QueueManagerService`
+- `SolicitudBatchService`
 
 ## Providers de correo
 
