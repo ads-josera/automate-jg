@@ -155,9 +155,11 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
     }
 
     // The common case (one valid request) keeps the configured template.
+    // Batches created before reply threading have no reply_to_id.
+    $reply_to_id = (string) ($batch['reply_to_id'] ?? '');
     $sent = (count($ok) === 1 && $failed === [])
-      ? $this->mailService->sendConstancia($this->pdfRow($ok[0]['entity']), $ok[0]['pdf_uri'], $settings)
-      : $this->mailService->sendBatchReply(implode(',', $recipients), $ok, $failed, $settings);
+      ? $this->mailService->sendConstancia($this->pdfRow($ok[0]['entity']), $ok[0]['pdf_uri'], $settings, $reply_to_id)
+      : $this->mailService->sendBatchReply(implode(',', $recipients), $ok, $failed, $settings, $reply_to_id);
 
     if (!$sent) {
       $attempts = $this->batchService->countSendAttempt($lote);

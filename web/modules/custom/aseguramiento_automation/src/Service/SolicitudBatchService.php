@@ -54,6 +54,8 @@ final class SolicitudBatchService {
       'from' => (string) ($message['from'] ?? ''),
       'subject' => (string) ($message['subject'] ?? ''),
       'message_id' => (string) ($message['id'] ?? ''),
+      // RFC 5322 Message-ID, so the reply is threaded as an answer.
+      'reply_to_id' => (string) ($message['headers']['message_id'] ?? ''),
       'files' => [],
       'reply_queued' => FALSE,
       'replied' => FALSE,

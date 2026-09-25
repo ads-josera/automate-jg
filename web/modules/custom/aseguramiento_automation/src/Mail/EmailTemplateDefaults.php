@@ -66,11 +66,11 @@ final class EmailTemplateDefaults {
 </div>
 HTML;
 
-  public const BATCH_SUBJECT_OK = 'Se generaron tus {{ total_constancias }} constancias';
+  public const BATCH_SUBJECT_OK = 'Solicitud de aseguramiento: se generaron tus {{ total_constancias }} constancias';
 
-  public const BATCH_SUBJECT_PARTIAL = 'Constancias generadas: {{ total_constancias }} de {{ total_solicitudes }}';
+  public const BATCH_SUBJECT_PARTIAL = 'Solicitud de aseguramiento: constancias generadas {{ total_constancias }} de {{ total_solicitudes }}';
 
-  public const BATCH_SUBJECT_ERRORS = 'Tu solicitud de aseguramiento requiere correcciones';
+  public const BATCH_SUBJECT_ERRORS = 'Solicitud de aseguramiento: requiere correcciones';
 
   public const BATCH_BODY = <<<'HTML'
 <div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">

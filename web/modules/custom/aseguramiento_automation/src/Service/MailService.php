@@ -24,7 +24,7 @@ final class MailService {
   ) {
   }
 
-  public function sendConstancia(array $data, string $pdf_uri, array $settings): bool {
+  public function sendConstancia(array $data, string $pdf_uri, array $settings, string $in_reply_to = ''): bool {
     $start = microtime(TRUE);
     $data = $this->withSystemVariables($data);
     $to = (string) ($data['email'] ?? '');
@@ -47,6 +47,7 @@ final class MailService {
       'subject' => $rendered['subject'],
       'body' => $rendered['body'],
       'is_html' => !empty($settings['email_reply_is_html']),
+      'in_reply_to' => $in_reply_to,
       'bcc' => !empty($settings['copy_notifications_on_customer_reply']) ? $this->notificationEmails($settings) : [],
       'attachments' => [[
         'filepath' => $pdf_path,
@@ -156,7 +157,7 @@ final class MailService {
    *   Items without PDF: each with "file", "folio", "nombre", "fields"
    *   (sentences the client must fix) and "internal" (problems on our side).
    */
-  public function sendBatchReply(string $to, array $ok, array $failed, array $settings): bool {
+  public function sendBatchReply(string $to, array $ok, array $failed, array $settings, string $in_reply_to = ''): bool {
     $attachments = [];
     foreach ($ok as $item) {
       $path = $this->fileSystem->realpath((string) $item['pdf_uri']);
@@ -172,6 +173,7 @@ final class MailService {
       'subject' => $rendered['subject'],
       'body' => $rendered['body'],
       'is_html' => TRUE,
+      'in_reply_to' => $in_reply_to,
       'bcc' => $bcc,
       'attachments' => $attachments,
     ]);
@@ -218,7 +220,9 @@ final class MailService {
       }
       $sections['lista_correcciones'] = '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">' . (count($to_fix) === 1 ? 'Esta solicitud necesita corrección' : 'Estas solicitudes necesitan corrección') . ' antes de generar la constancia:</p>'
         . '<div style="margin:0 0 12px;background:#fdf6f6;border:1px solid #f3d6d6;">' . $blocks . '</div>'
-        . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">Corrige los datos indicados en el formato y envíalo de nuevo a este mismo correo.</p>';
+        . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">' . ($ok !== []
+          ? 'Corrige los datos indicados y responde a este mismo correo adjuntando solo el archivo corregido. Las constancias de arriba ya quedaron listas; no hace falta volver a mandarlas.'
+          : 'Corrige los datos indicados y responde a este mismo correo adjuntando el archivo corregido.') . '</p>';
     }
     if ($internal !== []) {
       $names = implode(', ', array_map(static fn(array $item): string => $e($item['folio'] ?: $item['file']), $internal));
@@ -360,6 +364,20 @@ final class MailService {
     $from_name = (string) ($smtp->get('smtp_fromname') ?: $site->get('name'));
     $mailer->setFrom($from, $from_name);
     $mailer->Sender = $from;
+    // Without a hostname PHPMailer uses the server's ("default" on the
+    // hosting), which ends up in Message-ID and HELO and scores as spam.
+    $mailer->Hostname = (string) $smtp->get('smtp_client_hostname') ?: substr((string) strrchr($from, '@'), 1);
+    $helo = (string) $smtp->get('smtp_client_helo');
+    if ($helo !== '') {
+      $mailer->Helo = $helo;
+    }
+    $reply_to_id = self::messageIdHeader((string) ($params['in_reply_to'] ?? ''));
+    if ($reply_to_id !== '') {
+      // Sent as an answer to the client's email: it threads with it, and
+      // filters trust a reply more than a new message with attachments.
+      $mailer->addCustomHeader('In-Reply-To', $reply_to_id);
+      $mailer->addCustomHeader('References', $reply_to_id);
+    }
     foreach ($this->splitEmails($to) as $recipient) {
       $mailer->addAddress($recipient);
     }
@@ -377,7 +395,7 @@ final class MailService {
     $mailer->Subject = (string) $params['subject'];
     $mailer->isHTML(TRUE);
     $mailer->Body = (string) $params['body'];
-    $mailer->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", (string) $params['body'])));
+    $mailer->AltBody = self::htmlToText((string) $params['body']);
 
     $logo_path = dirname(__DIR__, 2) . '/assets/logo-jgm.png';
     if (is_readable($logo_path)) {
@@ -403,6 +421,30 @@ final class MailService {
       array_map('trim', (array) ($settings['notification_emails'] ?? [])),
       static fn(string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) !== FALSE,
     ));
+  }
+
+  /**
+   * Plain-text version of an HTML email, one line per block or row.
+   *
+   * Spam filters compare it with the HTML part; strip_tags() alone glued
+   * every row together ("...ecb5cpepe 1AA-2026...").
+   */
+  public static function htmlToText(string $html): string {
+    $html = preg_replace('#<(style|script|head)\b[^>]*>.*?</\1>#is', '', $html) ?? $html;
+    $html = preg_replace('#<li\b[^>]*>#i', "\n- ", $html) ?? $html;
+    $html = preg_replace('#</t[dh]>\s*<t[dh]\b[^>]*>#i', ' | ', $html) ?? $html;
+    $html = preg_replace('#<br\s*/?>|</?(p|div|tr|table|ul|ol|h[1-6])\b[^>]*>#i', "\n", $html) ?? $html;
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $lines = array_map(static fn(string $line): string => trim(preg_replace('/[ \t\x{00A0}]+/u', ' ', $line) ?? $line), explode("\n", $text));
+    return trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)) ?? '');
+  }
+
+  /**
+   * "<id@host>" for In-Reply-To/References, or '' when the id is unusable.
+   */
+  public static function messageIdHeader(string $id): string {
+    $id = trim($id, " \t<>");
+    return preg_match('/^[^\s<>@]+@[^\s<>@]+$/', $id) ? '<' . $id . '>' : '';
   }
 
   private function splitEmails(string $emails): array {

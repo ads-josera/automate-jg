@@ -8,7 +8,9 @@
  * way `drush aseguramiento:procesar-correo` does, and inspects what the
  * client receives in Mailpit:
  * - one valid Excel: the configured template with its PDF (unchanged);
- * - four Excel, one invalid: ONE email, three PDFs, what to fix, team copy;
+ * - four Excel, one invalid: ONE email, three PDFs, what to fix, team copy,
+ *   threaded as a reply, with a real Message-ID domain and a readable
+ *   plain-text part (the three things that sent it to Yahoo's spam);
  * - only invalid: one "requires corrections" email without attachments;
  * - an unreadable file next to a valid one: PDF plus "could not read";
  * - running again sends nothing more.
@@ -56,8 +58,11 @@ $excel = static function (string $name, array $overrides) use ($template): strin
   return $path;
 };
 
-$send = static function (array $attachments) use ($client): void {
+$send = static function (array $attachments, string $message_id = '') use ($client): void {
   $mailer = new PHPMailer(TRUE);
+  if ($message_id !== '') {
+    $mailer->MessageID = '<' . $message_id . '>';
+  }
   $mailer->isSMTP();
   $mailer->Host = 'greenmail-jg';
   $mailer->Port = 3025;
@@ -110,6 +115,10 @@ $toClient = static function () use ($mailpit, $client): array {
         'attachments' => count($detail['Attachments'] ?? []),
         'bcc' => array_column($message['Bcc'] ?? [], 'Address'),
         'html' => (string) ($detail['HTML'] ?? ''),
+        'text' => (string) ($detail['Text'] ?? ''),
+        'message_id' => (string) ($detail['MessageID'] ?? ''),
+        'from' => (string) ($detail['From']['Address'] ?? ''),
+        'headers' => $mailpit('GET', '/api/v1/message/' . $message['ID'] . '/headers'),
       ];
     }
   }
@@ -146,7 +155,7 @@ $send([
   'solicitud_2.xlsx' => $excel('Cliente B2', []),
   'solicitud_3.xlsx' => $excel('Cliente B3', []),
   'solicitud_4.xlsx' => $excel('Cliente B4', ['I23' => '']),
-]);
+], 'lote-b@cliente.example.com');
 $run();
 $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe UN solo correo (recibió ' . count($mails) . ')');
@@ -154,6 +163,12 @@ $check(($mails[0]['attachments'] ?? 0) === 3, 'Con los 3 PDF adjuntos (tiene ' .
 $check(str_contains($mails[0]['html'] ?? '', 'Medio de transporte: falta llenarlo'), 'Dice qué corregir: "Medio de transporte: falta llenarlo"');
 $check(str_contains($mails[0]['html'] ?? '', 'solicitud_4.xlsx'), 'Indica en qué archivo está el error');
 $check($team === [] || array_intersect($team, $mails[0]['bcc'] ?? []) !== [], 'El encargado recibe copia oculta');
+$check(($mails[0]['headers']['In-Reply-To'][0] ?? '') === '<lote-b@cliente.example.com>', 'Va como respuesta al correo del cliente (In-Reply-To: ' . ($mails[0]['headers']['In-Reply-To'][0] ?? 'ninguno') . ')');
+$from_domain = substr((string) strrchr($mails[0]['from'] ?? '', '@'), 1);
+$check($from_domain !== '' && str_ends_with($mails[0]['message_id'] ?? '', '@' . $from_domain), 'Message-ID con el dominio del remitente (' . ($mails[0]['message_id'] ?? '') . ')');
+$check((bool) preg_match('/^AA-\S+ \| Cliente B1\r?$/m', $mails[0]['text'] ?? ''), 'Texto plano: una constancia por renglón');
+$check((bool) preg_match('/^- Medio de transporte: falta llenarlo\r?$/m', $mails[0]['text'] ?? ''), 'Texto plano: cada corrección en su renglón');
+$check(str_contains($mails[0]['html'] ?? '', 'adjuntando solo el archivo corregido'), 'Pide responder solo con el archivo corregido');
 
 echo PHP_EOL . 'Escenario C: solo un Excel con error de fecha' . PHP_EOL;
 $mailpit('DELETE');
@@ -162,7 +177,7 @@ $run();
 $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe 1 correo (recibió ' . count($mails) . ')');
 $check(($mails[0]['attachments'] ?? -1) === 0, 'Sin adjuntos');
-$check(($mails[0]['subject'] ?? '') === 'Tu solicitud de aseguramiento requiere correcciones', 'Asunto de corrección');
+$check(str_starts_with($mails[0]['subject'] ?? '', strtok((string) \Drupal::config('aseguramiento_automation.settings')->get('batch_subject_errors'), '{')), 'Asunto de corrección ("' . ($mails[0]['subject'] ?? '') . '")');
 $check(str_contains($mails[0]['html'] ?? '', 'la fecha no es válida; escríbela como 24/09/2026'), 'Explica cómo escribir la fecha');
 
 echo PHP_EOL . 'Escenario D: un archivo dañado junto a uno válido' . PHP_EOL;

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Drupal\aseguramiento_automation\Service\MailService;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -51,6 +52,11 @@ function aseguramiento_automation_mail(string $key, &$message, array $params): v
   }
   if (!empty($params['bcc'])) {
     $message['headers']['Bcc'] = implode(', ', (array) $params['bcc']);
+  }
+  $reply_to_id = MailService::messageIdHeader((string) ($params['in_reply_to'] ?? ''));
+  if ($reply_to_id !== '') {
+    $message['headers']['In-Reply-To'] = $reply_to_id;
+    $message['headers']['References'] = $reply_to_id;
   }
   if (!empty($params['attachments'])) {
     $message['params']['attachments'] = $params['attachments'];
