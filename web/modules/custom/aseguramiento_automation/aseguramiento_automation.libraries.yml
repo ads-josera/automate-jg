@@ -16,6 +16,18 @@ template_builder:
     - core/once
     - core/drupalSettings
 
+email_preview:
+  version: 1.x
+  js:
+    js/email-preview.js: {}
+  css:
+    theme:
+      css/email-preview.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+
 login:
   version: 1.x
   css:

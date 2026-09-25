@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Drupal\user\Entity\Role;
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
+use Drupal\aseguramiento_automation\Mail\EmailTemplateDefaults;
 
 /**
  * Implements hook_install().
  */
 function aseguramiento_automation_install(): void {
   aseguramiento_automation_ensure_gestor_role();
+  aseguramiento_automation_ensure_email_templates();
 }
 
 /**
@@ -95,6 +97,27 @@ function aseguramiento_automation_update_11006(): string {
   $field_definitions = ConstanciaEntity::baseFieldDefinitions($entity_type);
   $definition_update_manager->installFieldStorageDefinition('lote', 'aseguramiento_constancia', 'aseguramiento_automation', $field_definitions['lote']);
   return 'Se agregó el campo lote para agrupar constancias por correo de origen.';
+}
+
+/**
+ * Makes the team notification and the batch reply editable in settings.
+ */
+function aseguramiento_automation_update_11007(): string {
+  aseguramiento_automation_ensure_email_templates();
+  return 'Se agregaron las plantillas editables del correo al encargado y de la respuesta agrupada.';
+}
+
+/**
+ * Seeds the editable email templates without overwriting edited ones.
+ */
+function aseguramiento_automation_ensure_email_templates(): void {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  foreach (EmailTemplateDefaults::settings() as $key => $default) {
+    if (trim((string) $config->get($key)) === '') {
+      $config->set($key, $default);
+    }
+  }
+  $config->save();
 }
 
 /**

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\aseguramiento_automation\Form;
 
+use Drupal\aseguramiento_automation\Mail\EmailTemplateDefaults;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Global automation settings form.
@@ -90,9 +92,16 @@ final class AutomationSettingsForm extends ConfigFormBase {
       '#attributes' => ['autocomplete' => 'new-password'],
     ];
 
+    $form['#attached']['library'][] = 'aseguramiento_automation/email_preview';
+    $form['#attached']['drupalSettings']['aseguramientoEmailPreview'] = [
+      'url' => Url::fromRoute('aseguramiento_automation.email_preview')->toString(),
+      'tokenUrl' => Url::fromRoute('system.csrftoken')->toString(),
+    ];
+
     $form['reply'] = [
       '#type' => 'details',
-      '#title' => $this->t('Correo de respuesta'),
+      '#title' => $this->t('Correo al cliente: una constancia'),
+      '#description' => $this->t('Se envía cuando el correo del cliente trae una sola solicitud y se generó su constancia.'),
       '#open' => TRUE,
     ];
     $form['reply']['email_reply_subject'] = [
@@ -103,7 +112,7 @@ final class AutomationSettingsForm extends ConfigFormBase {
     $form['reply']['email_reply_body'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Cuerpo'),
-      '#description' => $this->t('Puedes usar HTML y variables como {{ nombre }}, {{ folio }}, {{ aseguradora }} y {{ tipo_documento }}.'),
+      '#description' => $this->t('Puedes usar HTML y variables como {{ nombre }}, {{ folio }}, {{ aseguradora }}, {{ tipo_documento }}, {{ logo_data_uri }} y cualquier campo de la solicitud (por ejemplo {{ solicitante }} o {{ medio_transporte }}).'),
       '#default_value' => $config->get('email_reply_body'),
       '#rows' => 14,
     ];
@@ -112,6 +121,57 @@ final class AutomationSettingsForm extends ConfigFormBase {
       '#title' => $this->t('Enviar el cuerpo como HTML'),
       '#default_value' => (bool) $config->get('email_reply_is_html'),
     ];
+    $form['reply']['preview'] = $this->previewWidget('client');
+
+    $form['team_email'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Correo al encargado: nueva solicitud'),
+      '#description' => $this->t('Se envía a los correos de notificación cuando llega una solicitud, con los archivos del cliente adjuntos.'),
+      '#open' => TRUE,
+    ];
+    $form['team_email']['notification_subject'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Asunto'),
+      '#default_value' => $config->get('notification_subject') ?: EmailTemplateDefaults::NOTIFICATION_SUBJECT,
+    ];
+    $form['team_email']['notification_body'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Cuerpo (HTML)'),
+      '#description' => $this->t('Variables: {{ remitente }}, {{ asunto }}, {{ fecha }}, {{ archivos }} (cantidad de adjuntos) y {{ logo_data_uri }} (logo). Si lo dejas vacío se usa el diseño original.'),
+      '#default_value' => $config->get('notification_body') ?: EmailTemplateDefaults::NOTIFICATION_BODY,
+      '#rows' => 14,
+    ];
+    $form['team_email']['preview'] = $this->previewWidget('team');
+
+    $form['batch_email'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Correo al cliente: varias constancias o correcciones'),
+      '#description' => $this->t('Se envía cuando el correo del cliente trae varias solicitudes o alguna necesita corrección. El encargado recibe copia oculta cuando hay correcciones.'),
+      '#open' => TRUE,
+    ];
+    $form['batch_email']['batch_subject_ok'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Asunto: todas se generaron'),
+      '#default_value' => $config->get('batch_subject_ok') ?: EmailTemplateDefaults::BATCH_SUBJECT_OK,
+    ];
+    $form['batch_email']['batch_subject_partial'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Asunto: algunas requieren corrección'),
+      '#default_value' => $config->get('batch_subject_partial') ?: EmailTemplateDefaults::BATCH_SUBJECT_PARTIAL,
+    ];
+    $form['batch_email']['batch_subject_errors'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Asunto: ninguna se pudo generar'),
+      '#default_value' => $config->get('batch_subject_errors') ?: EmailTemplateDefaults::BATCH_SUBJECT_ERRORS,
+    ];
+    $form['batch_email']['batch_body'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Cuerpo (HTML)'),
+      '#description' => $this->t('Variables: {{ titulo }}, {{ lista_constancias }} (constancias adjuntas), {{ lista_correcciones }} (qué corregir y en qué archivo), {{ aviso_interno }} (problemas de nuestro lado), {{ total_constancias }}, {{ total_solicitudes }} y {{ logo_data_uri }}. Las listas se arman solas; si quitas una variable, esa parte no aparecerá. Si lo dejas vacío se usa el diseño original.'),
+      '#default_value' => $config->get('batch_body') ?: EmailTemplateDefaults::BATCH_BODY,
+      '#rows' => 14,
+    ];
+    $form['batch_email']['preview'] = $this->previewWidget('batch');
 
     $emails = array_values((array) $config->get('notification_emails'));
     $form['notifications'] = [
@@ -164,6 +224,9 @@ final class AutomationSettingsForm extends ConfigFormBase {
       ->set('notification_emails', $this->notificationEmails($form_state))
       ->set('notify_on_inbound_request', (bool) $form_state->getValue('notify_on_inbound_request'))
       ->set('copy_notifications_on_customer_reply', (bool) $form_state->getValue('copy_notifications_on_customer_reply'));
+    foreach (array_keys(EmailTemplateDefaults::settings()) as $key) {
+      $config->set($key, (string) $form_state->getValue($key));
+    }
 
     if (($key = trim((string) $form_state->getValue('token_encryption_key'))) !== '') {
       $config->set('token_encryption_key', $key);
@@ -171,6 +234,35 @@ final class AutomationSettingsForm extends ConfigFormBase {
 
     $config->save();
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * "Vista previa" button and the panel where the rendered email appears.
+   *
+   * The button is type="button": it never submits the form. The panel is
+   * filled by js/email-preview.js with what is currently typed.
+   */
+  private function previewWidget(string $template): array {
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['aa-email-preview'], 'data-aa-email-preview' => $template],
+      'button' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $this->t('Vista previa'),
+        '#attributes' => ['type' => 'button', 'class' => ['button', 'aa-email-preview__button']],
+      ],
+      'status' => [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#attributes' => ['class' => ['aa-email-preview__status'], 'aria-live' => 'polite'],
+      ],
+      'result' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['aa-email-preview__result'], 'hidden' => 'hidden'],
+      ],
+    ];
   }
 
   private function linesToList(string $value): array {

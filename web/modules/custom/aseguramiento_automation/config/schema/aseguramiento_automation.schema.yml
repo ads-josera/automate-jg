@@ -59,6 +59,24 @@ aseguramiento_automation.settings:
     copy_notifications_on_customer_reply:
       type: boolean
       label: 'Copy notification emails on customer reply'
+    notification_subject:
+      type: string
+      label: 'Team notification subject'
+    notification_body:
+      type: text
+      label: 'Team notification body'
+    batch_subject_ok:
+      type: string
+      label: 'Batch reply subject when every request succeeded'
+    batch_subject_partial:
+      type: string
+      label: 'Batch reply subject when some requests need corrections'
+    batch_subject_errors:
+      type: string
+      label: 'Batch reply subject when no request succeeded'
+    batch_body:
+      type: text
+      label: 'Batch reply body'
 
 aseguramiento_automation.mail_account.*:
   type: config_entity

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\aseguramiento_automation\Service;
 
+use Drupal\aseguramiento_automation\Mail\EmailTemplateDefaults;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Mail\MailManagerInterface;
@@ -41,9 +42,10 @@ final class MailService {
         '@path' => $pdf_path,
       ]);
     }
+    $rendered = $this->renderClientReply($data, $settings);
     $params = [
-      'subject' => $this->renderTemplate((string) ($settings['email_reply_subject'] ?? 'Constancia generada'), $data),
-      'body' => $this->renderTemplate((string) ($settings['email_reply_body'] ?? ''), $data),
+      'subject' => $rendered['subject'],
+      'body' => $rendered['body'],
       'is_html' => !empty($settings['email_reply_is_html']),
       'bcc' => !empty($settings['copy_notifications_on_customer_reply']) ? $this->notificationEmails($settings) : [],
       'attachments' => [[
@@ -66,6 +68,77 @@ final class MailService {
       ]);
     }
     return $sent;
+  }
+
+  /**
+   * Builds the reply for a single constancia (configured template).
+   *
+   * @return array{subject: string, body: string}
+   */
+  public function renderClientReply(array $data, array $settings): array {
+    $data = $this->withSystemVariables($data);
+    $is_html = !empty($settings['email_reply_is_html']);
+    return [
+      'subject' => $this->renderTemplate((string) ($settings['email_reply_subject'] ?? 'Constancia generada'), $data, FALSE),
+      'body' => $this->renderTemplate((string) ($settings['email_reply_body'] ?? ''), $data, $is_html),
+    ];
+  }
+
+  /**
+   * Builds the team notification for a new inbound request.
+   *
+   * @return array{subject: string, body: string}
+   */
+  public function renderInboundNotification(array $message, int $attachment_count, array $settings): array {
+    $data = $this->withSystemVariables([
+      'remitente' => $this->decodeMimeHeader((string) ($message['from'] ?? 'Cliente')),
+      'asunto' => $this->decodeMimeHeader((string) ($message['subject'] ?? 'Solicitud de aseguramiento')),
+      'fecha' => date('d/m/Y H:i'),
+      'archivos' => (string) $attachment_count,
+    ]);
+    return [
+      'subject' => $this->renderTemplate($this->setting($settings, 'notification_subject'), $data, FALSE),
+      'body' => $this->renderTemplate($this->setting($settings, 'notification_body'), $data, TRUE),
+    ];
+  }
+
+  /**
+   * Builds the single reply for an email with several results.
+   *
+   * @return array{subject: string, body: string}
+   */
+  public function renderBatchReply(array $ok, array $failed, array $settings): array {
+    $data = $this->withSystemVariables([
+      'total_constancias' => (string) count($ok),
+      'total_solicitudes' => (string) (count($ok) + count($failed)),
+      'titulo' => $ok === [] ? 'Tu solicitud requiere correcciones' : 'Constancias de aseguramiento',
+    ]);
+    $subject_key = match (TRUE) {
+      $ok === [] => 'batch_subject_errors',
+      $failed === [] => 'batch_subject_ok',
+      default => 'batch_subject_partial',
+    };
+    return [
+      'subject' => $this->renderTemplate($this->setting($settings, $subject_key), $data, FALSE),
+      'body' => $this->renderTemplate($this->setting($settings, 'batch_body'), $data, TRUE, $this->batchSections($ok, $failed)),
+    ];
+  }
+
+  /**
+   * Makes a rendered email viewable in a browser (settings preview).
+   *
+   * Emails reference the logo as an inline attachment (cid:), which a
+   * browser cannot resolve; the preview embeds the same image instead.
+   */
+  public function previewDocument(string $body, bool $is_html): string {
+    if (!$is_html) {
+      return '<pre style="font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap;">' . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</pre>';
+    }
+    $logo = dirname(__DIR__, 2) . '/assets/logo-jgm.png';
+    if (is_readable($logo)) {
+      $body = str_replace('cid:jgmylard-logo', 'data:image/png;base64,' . base64_encode((string) file_get_contents($logo)), $body);
+    }
+    return $body;
   }
 
   /**
@@ -92,17 +165,12 @@ final class MailService {
       }
       $attachments[] = ['filepath' => $path, 'filename' => basename((string) $item['pdf_uri']), 'filemime' => 'application/pdf'];
     }
-    $total = count($ok) + count($failed);
-    $subject = match (TRUE) {
-      $ok === [] => 'Tu solicitud de aseguramiento requiere correcciones',
-      $failed === [] => sprintf('Se generaron tus %d constancias', count($ok)),
-      default => sprintf('Constancias generadas: %d de %d', count($ok), $total),
-    };
+    $rendered = $this->renderBatchReply($ok, $failed, $settings);
     // The team always gets a copy when something needs follow-up.
     $bcc = ($failed !== [] || !empty($settings['copy_notifications_on_customer_reply'])) ? $this->notificationEmails($settings) : [];
     $sent = $this->deliver($to, [
-      'subject' => $subject,
-      'body' => $this->batchReplyBody($ok, $failed),
+      'subject' => $rendered['subject'],
+      'body' => $rendered['body'],
       'is_html' => TRUE,
       'bcc' => $bcc,
       'attachments' => $attachments,
@@ -117,17 +185,22 @@ final class MailService {
     return $sent;
   }
 
-  private function batchReplyBody(array $ok, array $failed): string {
+  /**
+   * HTML blocks of the batch reply, inserted as {{ lista_* }} variables.
+   *
+   * @return array<string, string>
+   */
+  private function batchSections(array $ok, array $failed): array {
     $e = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $cell = 'padding:10px 14px;font-size:13px;border-top:1px solid #e3e8ef;';
-    $sections = '';
+    $sections = ['lista_constancias' => '', 'lista_correcciones' => '', 'aviso_interno' => ''];
 
     if ($ok !== []) {
       $rows = '';
       foreach ($ok as $item) {
         $rows .= '<tr><td style="' . $cell . 'font-weight:700;color:#1f2933;">' . $e($item['folio']) . '</td><td style="' . $cell . 'color:#52606d;">' . $e($item['nombre']) . '</td></tr>';
       }
-      $sections .= '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Adjuntamos ' . (count($ok) === 1 ? 'la constancia generada' : 'las ' . count($ok) . ' constancias generadas') . ':</p>'
+      $sections['lista_constancias'] = '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Adjuntamos ' . (count($ok) === 1 ? 'la constancia generada' : 'las ' . count($ok) . ' constancias generadas') . ':</p>'
         . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;background:#f8fafc;border:1px solid #e3e8ef;">' . $rows . '</table>';
     }
 
@@ -143,24 +216,16 @@ final class MailService {
         $who = trim($item['nombre']) !== '' ? ' (' . $e($item['nombre']) . ')' : '';
         $blocks .= '<div style="padding:12px 14px;border-top:1px solid #f3d6d6;"><div style="font-size:13px;font-weight:700;color:#1f2933;">' . $e($item['file']) . $who . '</div><ul style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:#52606d;">' . $items . '</ul></div>';
       }
-      $sections .= '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">' . (count($to_fix) === 1 ? 'Esta solicitud necesita corrección' : 'Estas solicitudes necesitan corrección') . ' antes de generar la constancia:</p>'
+      $sections['lista_correcciones'] = '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">' . (count($to_fix) === 1 ? 'Esta solicitud necesita corrección' : 'Estas solicitudes necesitan corrección') . ' antes de generar la constancia:</p>'
         . '<div style="margin:0 0 12px;background:#fdf6f6;border:1px solid #f3d6d6;">' . $blocks . '</div>'
         . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">Corrige los datos indicados en el formato y envíalo de nuevo a este mismo correo.</p>';
     }
     if ($internal !== []) {
       $names = implode(', ', array_map(static fn(array $item): string => $e($item['folio'] ?: $item['file']), $internal));
-      $sections .= '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">No pudimos terminar ' . (count($internal) === 1 ? 'la solicitud' : 'las solicitudes') . ' ' . $names . ' por un problema de nuestro lado. No necesitas corregir nada: nuestro equipo ya fue notificado y te contactará.</p>';
+      $sections['aviso_interno'] = '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">No pudimos terminar ' . (count($internal) === 1 ? 'la solicitud' : 'las solicitudes') . ' ' . $names . ' por un problema de nuestro lado. No necesitas corregir nada: nuestro equipo ya fue notificado y te contactará.</p>';
     }
 
-    $title = $ok === [] ? 'Tu solicitud requiere correcciones' : 'Constancias de aseguramiento';
-    return '<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">'
-      . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;"><tr><td align="center" style="padding:28px 16px;">'
-      . '<div style="padding:10px 0 28px;text-align:center;"><img src="cid:jgmylard-logo" width="190" alt="JG Mylard" style="display:inline-block;width:190px;max-width:70%;height:auto;border:0;"></div>'
-      . '<table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:620px;max-width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee5;">'
-      . '<tr><td style="padding:24px 28px;background:#243a7b;color:#ffffff;"><div style="font-size:20px;font-weight:700;">' . $e($title) . '</div></td></tr>'
-      . '<tr><td style="padding:28px 28px 6px;">' . $sections . '<p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#52606d;">Este correo fue generado automáticamente. Para cualquier aclaración, responde a este mismo mensaje.</p></td></tr>'
-      . '<tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e3e8ef;font-size:12px;color:#697586;">Solicitud JG Mylard</td></tr>'
-      . '</table></td></tr></table></div>';
+    return $sections;
   }
 
   /**
@@ -200,60 +265,11 @@ final class MailService {
       }
     }
 
-    $from = htmlspecialchars($this->decodeMimeHeader((string) ($message['from'] ?? 'Cliente')), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $subject = htmlspecialchars($this->decodeMimeHeader((string) ($message['subject'] ?? 'Solicitud de aseguramiento')), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $date = date('d/m/Y H:i');
-    $attachment_count = count($attachments);
-    $body = <<<HTML
-<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;">
-    <tr>
-      <td align="center" style="padding:28px 16px;">
-        <div style="padding:10px 0 28px;text-align:center;">
-          <img src="cid:jgmylard-logo" width="190" alt="JG Mylard" style="display:inline-block;width:190px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
-        </div>
-        <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:620px;max-width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee5;">
-          <tr>
-            <td style="padding:24px 28px;background:#243a7b;color:#ffffff;">
-              <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">Nueva solicitud de aseguramiento</div>
-              <div style="font-size:13px;margin-top:6px;opacity:.9;">{$date}</div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:28px;">
-              <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Se recibió una nueva solicitud del cliente. El formato original se adjunta para revisión interna.</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:18px 0;background:#f8fafc;border:1px solid #e3e8ef;">
-                <tr>
-                  <td style="padding:12px 14px;font-size:13px;color:#52606d;">Remitente</td>
-                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;">{$from}</td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 14px;font-size:13px;color:#52606d;border-top:1px solid #e3e8ef;">Asunto</td>
-                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;border-top:1px solid #e3e8ef;">{$subject}</td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 14px;font-size:13px;color:#52606d;border-top:1px solid #e3e8ef;">Archivos adjuntos</td>
-                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;border-top:1px solid #e3e8ef;">{$attachment_count}</td>
-                </tr>
-              </table>
-              <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#52606d;">Este correo fue generado automáticamente por el sistema de automatización documental.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e3e8ef;font-size:12px;color:#697586;">
-              Solicitud JG Mylard
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</div>
-HTML;
+    $rendered = $this->renderInboundNotification($message, count($attachments), $settings);
 
     $sent = $this->sendWithPhpMailer(implode(',', $recipients), [
-      'subject' => 'Nueva solicitud de aseguramiento',
-      'body' => $body,
+      'subject' => $rendered['subject'],
+      'body' => $rendered['body'],
       'is_html' => TRUE,
       'attachments' => $attachments,
     ]);
@@ -270,8 +286,32 @@ HTML;
     return $sent;
   }
 
-  private function renderTemplate(string $template, array $data): string {
-    return preg_replace_callback('/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/', static fn(array $matches): string => (string) ($data[$matches[1]] ?? ''), $template) ?? $template;
+  /**
+   * Replaces {{ variable }} placeholders.
+   *
+   * @param bool $escape
+   *   HTML-escape $data values (HTML bodies): they come from the client's
+   *   email and form, and must not be able to inject markup.
+   * @param array $raw
+   *   Module-built HTML blocks, inserted as they are.
+   */
+  private function renderTemplate(string $template, array $data, bool $escape, array $raw = []): string {
+    return preg_replace_callback('/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/', static function (array $matches) use ($data, $escape, $raw): string {
+      if (array_key_exists($matches[1], $raw)) {
+        return (string) $raw[$matches[1]];
+      }
+      $value = (string) ($data[$matches[1]] ?? '');
+      // The logo placeholder is a cid: URL generated by the module.
+      return $escape && !in_array($matches[1], ['logo_src', 'logo_data_uri'], TRUE) ? htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : $value;
+    }, $template) ?? $template;
+  }
+
+  /**
+   * Editable template, falling back to the default when left empty.
+   */
+  private function setting(array $settings, string $key): string {
+    $value = trim((string) ($settings[$key] ?? ''));
+    return $value !== '' ? (string) $settings[$key] : EmailTemplateDefaults::settings()[$key];
   }
 
   private function withSystemVariables(array $data): array {
@@ -373,6 +413,12 @@ HTML;
   }
 
   private function decodeMimeHeader(string $value): string {
+    // Only RFC 2047 encoded-words need decoding. Mail providers already hand
+    // over decoded UTF-8, and iconv_mime_decode() drops its accents
+    // ("Compañía" became "Compaa").
+    if (!str_contains($value, '=?')) {
+      return trim($value);
+    }
     $decoded = iconv_mime_decode($value, ICONV_MIME_DECODE_CONTINUE_ON_ERROR, 'UTF-8');
     if ($decoded !== FALSE && $decoded !== '') {
       return trim($decoded);

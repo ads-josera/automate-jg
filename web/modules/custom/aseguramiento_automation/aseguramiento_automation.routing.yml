@@ -14,6 +14,15 @@ aseguramiento_automation.settings:
   requirements:
     _permission: 'administer aseguramiento automation'
 
+aseguramiento_automation.email_preview:
+  path: '/admin/config/aseguramiento/settings/email-preview'
+  defaults:
+    _controller: '\Drupal\aseguramiento_automation\Controller\EmailPreviewController::preview'
+  methods: [POST]
+  requirements:
+    _permission: 'administer aseguramiento automation'
+    _csrf_request_header_token: 'TRUE'
+
 aseguramiento_automation.mail_accounts:
   path: '/admin/config/aseguramiento/mail-accounts'
   defaults:

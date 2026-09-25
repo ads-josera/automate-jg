@@ -1,0 +1,48 @@
+/**
+ * @file
+ * Email preview panel in the automation settings form (admin theme).
+ */
+.aa-email-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-block: 0.5rem 1rem;
+}
+
+.aa-email-preview__status {
+  font-size: 0.875rem;
+  color: #55565b;
+}
+
+.aa-email-preview__result {
+  flex-basis: 100%;
+  padding: 1rem;
+  border: 1px solid #d3d4d9;
+  border-radius: 4px;
+  background: #f3f4f9;
+}
+
+.aa-email-preview__result[hidden] {
+  display: none;
+}
+
+.aa-email-preview__subject,
+.aa-email-preview__note {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.aa-email-preview__note {
+  color: #55565b;
+}
+
+/* The email designs are 620px wide; scroll inside the frame on narrow screens. */
+.aa-email-preview__frame {
+  display: block;
+  width: 100%;
+  height: 760px;
+  border: 1px solid #d3d4d9;
+  background: #fff;
+}
