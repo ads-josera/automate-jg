@@ -458,6 +458,52 @@ body:has(.aseguramiento-standalone) .breadcrumb {
   hyphens: none;
 }
 
+/* Error badge in the list: a button that shows why (js/status-tooltip.js). */
+.aseguramiento-status-tip__trigger {
+  border: 0;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: help;
+}
+
+.aseguramiento-status-tip__trigger:focus-visible {
+  outline: 3px solid rgba(180, 35, 82, 0.35);
+  outline-offset: 2px;
+}
+
+.aseguramiento-status-tip__bubble {
+  position: fixed;
+  z-index: 600;
+  display: none;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #1f2933;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+}
+
+.aseguramiento-status-tip__bubble.is-open {
+  display: block;
+}
+
+.aseguramiento-status-tip__bubble strong {
+  display: block;
+  color: #fff;
+  font-weight: 800;
+}
+
+.aseguramiento-status-tip__bubble ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
 /* Why a constancia in error cannot be reprocessed: the client must fix it. */
 .aseguramiento-detail__notice {
   margin: 18px 24px 0;
@@ -599,8 +645,13 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 
 .aseguramiento-list-filters input,
 .aseguramiento-list-filters select {
+  box-sizing: border-box;
   width: 100%;
+  height: 42px;
   min-height: 42px;
+  margin: 0;
+  padding: 0 12px;
+  line-height: normal;
   border: 1px solid #d7dee9;
   border-radius: 7px;
   background: #fff;

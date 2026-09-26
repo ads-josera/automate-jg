@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Entity;
 
 use Drupal\aseguramiento_automation\Util\PageShell;
+use Drupal\aseguramiento_automation\Util\SolicitudErrorFormatter;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityListBuilder;
@@ -123,7 +124,8 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       'aseguradora' => $entity->get('aseguradora')->value ?: $this->t('Sin aseguradora'),
       'status' => [
         'data' => [
-          '#markup' => '<span class="aseguramiento-badge aseguramiento-badge--' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string) $this->t(self::STATUS_LABELS[$status] ?? $status), ENT_QUOTES, 'UTF-8') . '</span>',
+          '#markup' => $this->statusBadge($entity, $status),
+          '#allowed_tags' => ['span', 'button', 'strong', 'ul', 'li'],
         ],
       ],
       'changed' => $this->dateFormatter->format((int) $entity->getChangedTime(), 'short'),
@@ -161,6 +163,7 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       'footer' => PageShell::footer(),
     ];
     $build['#attached']['library'][] = 'aseguramiento_automation/admin';
+    $build['#attached']['library'][] = 'aseguramiento_automation/status_tooltip';
     return $build;
   }
 
@@ -209,6 +212,38 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       $options .= '<option value="' . $value . '"' . $selected . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</option>';
     }
     return $options;
+  }
+
+  /**
+   * Status badge; on "error" it also carries why (see js/status-tooltip.js).
+   *
+   * The reason comes from the stored errors, like the client emails, so the
+   * list needs no extra query per row.
+   */
+  private function statusBadge(ConstanciaEntityInterface $entity, string $status): string {
+    $e = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $label = $e((string) $this->t(self::STATUS_LABELS[$status] ?? $status));
+    $class = 'aseguramiento-badge aseguramiento-badge--' . $e($status);
+    if ($status !== 'error') {
+      return '<span class="' . $class . '">' . $label . '</span>';
+    }
+
+    $described = SolicitudErrorFormatter::describe((string) $entity->get('errores')->value);
+    [$title, $lines] = match (TRUE) {
+      $described['fields'] !== [] => [$this->t('El cliente debe corregir la solicitud'), $described['fields']],
+      $described['internal'] !== [] => [$this->t('Error interno (no es del cliente)'), $described['internal']],
+      default => [$this->t('Sin detalle registrado'), []],
+    };
+    $shown = array_slice($lines, 0, 3);
+    if (count($lines) > count($shown)) {
+      $shown[] = (string) $this->t('y @n más; ábrela para ver todo.', ['@n' => count($lines) - count($shown)]);
+    }
+    $items = implode('', array_map(static fn(string $line): string => '<li>' . $e(mb_strimwidth($line, 0, 160, '…')) . '</li>', $shown));
+    $id = 'aseguramiento-tip-' . $entity->id();
+    return '<span class="aseguramiento-status-tip">'
+      . '<button type="button" class="' . $class . ' aseguramiento-status-tip__trigger" aria-describedby="' . $id . '" aria-expanded="false">' . $label . '</button>'
+      . '<span class="aseguramiento-status-tip__bubble" id="' . $id . '" role="tooltip"><strong>' . $e((string) $title) . '</strong>' . ($items !== '' ? '<ul>' . $items . '</ul>' : '') . '</span>'
+      . '</span>';
   }
 
   /**

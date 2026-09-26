@@ -33,3 +33,12 @@ login:
   css:
     theme:
       css/login.css: {}
+
+status_tooltip:
+  version: 1.x
+  js:
+    js/status-tooltip.js: {}
+  dependencies:
+    - aseguramiento_automation/admin
+    - core/drupal
+    - core/once
