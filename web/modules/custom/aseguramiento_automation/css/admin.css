@@ -32,21 +32,45 @@ body:has(.aseguramiento-standalone) .toolbar-tray {
   display: none !important;
 }
 
+/* Front theme chrome the panel replaces. Olivero names its regions with a
+   double dash (.region--breadcrumb); the empty blocks left in them kept a
+   54px bottom margin each, a blank band above the header. */
 body:has(.aseguramiento-standalone) .site-header,
 body:has(.aseguramiento-standalone) .site-footer,
-body:has(.aseguramiento-standalone) .region-primary-menu,
-body:has(.aseguramiento-standalone) .region-secondary-menu,
-body:has(.aseguramiento-standalone) .region-highlighted,
-body:has(.aseguramiento-standalone) .region-breadcrumb,
+body:has(.aseguramiento-standalone) .region--primary-menu,
+body:has(.aseguramiento-standalone) .region--secondary-menu,
+body:has(.aseguramiento-standalone) .region--breadcrumb,
 body:has(.aseguramiento-standalone) .region--content-above,
+body:has(.aseguramiento-standalone) .region--highlighted > .block,
 body:has(.aseguramiento-standalone) .tabs-wrapper,
 body:has(.aseguramiento-standalone) .tabs,
 body:has(.aseguramiento-standalone) .breadcrumb,
 body:has(.aseguramiento-standalone) .block-page-title-block,
-body:has(.aseguramiento-standalone) [id^="block-olivero-page-title"],
-body:has(.aseguramiento-standalone) .messages-list,
-body:has(.aseguramiento-standalone) [data-drupal-messages] {
+body:has(.aseguramiento-standalone) [id^="block-olivero-page-title"] {
   display: none !important;
+}
+
+/* Status messages ("La constancia se está reprocesando…") stay visible, in
+   the panel's width, above its header. */
+body:has(.aseguramiento-standalone) .region--highlighted {
+  width: min(100% - 48px, 1520px);
+  margin: 0 auto;
+  padding: 0;
+}
+
+body:has(.aseguramiento-standalone) .region--highlighted .messages-list {
+  margin: 24px 0 0;
+}
+
+body:has(.aseguramiento-standalone) .region--highlighted .messages {
+  max-width: none;
+  border-radius: 10px;
+  hyphens: manual;
+  overflow-wrap: anywhere;
+}
+
+body:has(.aseguramiento-standalone) .region--highlighted .messages-list.hidden {
+  display: none;
 }
 
 body:has(.aseguramiento-standalone) .dialog-off-canvas-main-canvas,
@@ -96,7 +120,7 @@ body:has(.aseguramiento-standalone) .breadcrumb {
   gap: 26px;
   width: min(100% - 48px, 1520px);
   margin: 0 auto;
-  padding: 0 0 56px;
+  padding: 24px 0 56px;
   color: #1f2937;
   font-family: Inter, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0;
@@ -195,6 +219,43 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 .aseguramiento-action-button:focus {
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Hover and focus keep each button's text color: the theme's link hover
+   color (blue) was showing on the pink buttons. */
+.aseguramiento-action-button--primary:hover,
+.aseguramiento-action-button--primary:focus,
+.aseguramiento-link-button:hover,
+.aseguramiento-link-button:focus,
+.aseguramiento-list-filters button:hover,
+.aseguramiento-list-filters button:focus {
+  border-color: #b3085a;
+  background: #b3085a;
+  color: #fff;
+}
+
+.aseguramiento-list-filters a:hover,
+.aseguramiento-list-filters a:focus,
+.aseguramiento-confirm .form-actions a:hover,
+.aseguramiento-confirm .form-actions a:focus {
+  border-color: #b9c4d6;
+  background: #f4f6fb;
+  color: #243a7b;
+}
+
+.aseguramiento-table a:not(.aseguramiento-link-button):hover,
+.aseguramiento-table a:not(.aseguramiento-link-button):focus {
+  color: #243a7b;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.aseguramiento-action-button:focus-visible,
+.aseguramiento-link-button:focus-visible,
+.aseguramiento-list-filters button:focus-visible,
+.aseguramiento-list-filters a:focus-visible {
+  outline: 3px solid rgba(255, 19, 132, 0.35);
+  outline-offset: 2px;
 }
 
 .aseguramiento-action-button--primary,
@@ -541,6 +602,18 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 
 .aseguramiento-pdf-preview {
   overflow: hidden;
+}
+
+/* Shown instead of the preview when the browser cannot display PDFs
+   (most phones). */
+.aseguramiento-pdf-object p {
+  margin: 0;
+  padding: 18px 24px 0;
+  color: #485568;
+}
+
+.aseguramiento-pdf-object p:last-child {
+  padding-bottom: 24px;
 }
 
 .aseguramiento-pdf-object {

@@ -140,7 +140,7 @@ final class ConstanciaController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['aseguramiento-panel', 'aseguramiento-pdf-preview']],
         'title' => ['#markup' => '<div class="aseguramiento-panel__header"><div><span>Documento final</span><h2>' . $this->t('Vista previa del PDF generado') . '</h2></div></div>'],
-        'iframe' => ['#markup' => '<object data="' . $this->escape($pdf_src) . '#toolbar=1&navpanes=0" type="application/pdf" class="aseguramiento-pdf-object"><p>' . $this->t('Tu navegador no pudo mostrar la vista previa del PDF.') . ' <a href="' . $this->escape($pdf_src) . '" target="_blank" rel="noopener noreferrer">' . $this->t('Abrir PDF generado') . '</a></p></object>'],
+        'iframe' => ['#markup' => '<object data="' . $this->escape($pdf_src) . '#toolbar=1&navpanes=0" type="application/pdf" class="aseguramiento-pdf-object"><p>' . $this->t('Tu navegador no pudo mostrar la vista previa del PDF.') . '</p><p><a class="aseguramiento-link-button" href="' . $this->escape($pdf_src) . '" target="_blank" rel="noopener noreferrer">' . $this->t('Abrir PDF generado') . '</a></p></object>'],
       ];
     }
 

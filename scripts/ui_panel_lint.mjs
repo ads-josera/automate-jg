@@ -3,7 +3,8 @@
  *
  * Measures what a user notices at a glance and a screenshot review misses:
  * page scrolling sideways, words split across lines, content cut off by a
- * panel, and the branded header / "Cerrar sesión" missing. Runs every page
+ * panel, a blank band above the header, text contrast of every button and
+ * link while hovered, and the branded header / "Cerrar sesión" missing. Runs every page
  * at five widths. Run it once per role (gestor and administrator), logged in
  * through a one-time login link:
  *
@@ -52,12 +53,42 @@ export default async function run(page) {
             }
           }
         }
+        // Blank band above the branded header (theme regions left behind).
+        const heroEl = document.querySelector('.aseguramiento-dashboard-hero');
+        const messages = document.querySelector('[data-drupal-messages] .messages, .messages-list .messages');
+        // Only on the branded pages: administrators get Drupal's own header.
+        if (heroEl && !messages && document.querySelector('.aseguramiento-standalone') && heroEl.getBoundingClientRect().top + scrollY > 48) out.push('espacio en blanco arriba del encabezado: ' + Math.round(heroEl.getBoundingClientRect().top + scrollY) + 'px');
         const hero = document.querySelector('.aseguramiento-dashboard-hero');
         if (!hero) out.push('SIN encabezado de marca');
         if (![...document.querySelectorAll('a')].some(a => /Cerrar sesión/.test(a.innerText))) out.push('SIN Cerrar sesión');
         return [...new Set(out)];
       });
-      if (issues.length) report[`${width} ${name}`] = issues;
+      // Text contrast of every button and link while hovered (one width).
+      if (width === 1280) {
+        const count = await page.locator('.aseguramiento-dashboard a:visible, .aseguramiento-dashboard button:visible, .aseguramiento-dashboard input[type=submit]:visible').count();
+        for (let i = 0; i < count; i++) {
+          const el = page.locator('.aseguramiento-dashboard a:visible, .aseguramiento-dashboard button:visible, .aseguramiento-dashboard input[type=submit]:visible').nth(i);
+          await el.hover({ timeout: 2000 }).catch(() => {});
+          const result = await el.evaluate((node) => {
+            const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
+            const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+            // Effective background: blend translucent layers up the tree.
+            const layers = [];
+            for (let p = node; p; p = p.parentElement) {
+              const [r, g, b, a = 1] = parse(getComputedStyle(p).backgroundColor);
+              if (a > 0) { layers.push([r, g, b, a]); if (a >= 1) break; }
+            }
+            let bg = [255, 255, 255];
+            for (const [r, g, b, a] of layers.reverse()) bg = [r * a + bg[0] * (1 - a), g * a + bg[1] * (1 - a), b * a + bg[2] * (1 - a)];
+            const fg = parse(getComputedStyle(node).color).slice(0, 3);
+            const [l1, l2] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+            return { ratio: (l1 + 0.05) / (l2 + 0.05), label: (node.innerText || node.value || '').trim().slice(0, 24) };
+          });
+          if (result.ratio < 4.5) issues.push(`contraste bajo al pasar el puntero (${result.ratio.toFixed(1)}:1): ${result.label}`);
+        }
+        await page.mouse.move(0, 0);
+      }
+      if (issues.length) report[`${width} ${name}`] = [...new Set(issues)];
     }
   }
   return Object.keys(report).length ? report : 'limpio';
