@@ -56,6 +56,28 @@ final class EmailParserService {
     return ['accepted' => $errors === [], 'errors' => $errors];
   }
 
+  /**
+   * Whether an email found in spam is a request worth moving to the inbox.
+   *
+   * Stricter than filterMessage(): spam is only touched when the subject has
+   * one of the configured keywords (none configured: nothing is rescued) and
+   * an Excel or PDF is attached.
+   *
+   * @param array $message
+   *   Message description with "attachment_names".
+   */
+  public function isSpamRescueCandidate(array $message, array $settings): bool {
+    if (array_filter((array) ($settings['required_subject_keywords'] ?? [])) === [] || !$this->filterMessage($message, $settings)['accepted']) {
+      return FALSE;
+    }
+    foreach ((array) ($message['attachment_names'] ?? []) as $name) {
+      if (in_array(strtolower(pathinfo((string) $name, PATHINFO_EXTENSION)), ['xls', 'xlsx', 'xlsm', 'pdf'], TRUE)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
   public function persistProcessableAttachments(array $attachments, string $account_id): array {
     $directory = 'private://aseguramiento/inbound/' . preg_replace('/[^a-z0-9_]+/i', '_', $account_id);
     $this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);

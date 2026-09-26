@@ -7,7 +7,9 @@ namespace Drupal\aseguramiento_automation\Service;
 use Drupal\aseguramiento_automation\Mail\ImapMailProvider;
 use Drupal\aseguramiento_automation\Mail\MailProviderInterface;
 use Drupal\aseguramiento_automation\Mail\MicrosoftGraphMailProvider;
+use Drupal\aseguramiento_automation\Mail\SpamRescueInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\State\StateInterface;
 use GuzzleHttp\ClientInterface;
 use Psr\Log\LoggerInterface;
 
@@ -25,9 +27,12 @@ final class MailProviderManagerService {
     private readonly ConfigFactoryInterface $configFactory,
     ClientInterface $httpClient,
     private readonly LoggerInterface $logger,
+    StateInterface $state,
+    private readonly ProcessedMailRegistry $registry,
+    private readonly EmailParserService $emailParser,
   ) {
     $graph = new MicrosoftGraphService($httpClient, $logger);
-    $imap = new ImapService($logger);
+    $imap = new ImapService($logger, $state);
     $this->providers = [
       'microsoft_graph' => new MicrosoftGraphMailProvider($graph),
       'imap' => new ImapMailProvider($imap),
@@ -41,6 +46,9 @@ final class MailProviderManagerService {
     return $this->providers[$provider_id];
   }
 
+  /**
+   * New emails of an account, each claimed so the caller queues it once.
+   */
   public function fetchForAccount(array $account, ?int $limit = NULL): array {
     $provider = $this->getProvider($account['provider'] ?? 'microsoft_graph');
     $settings = $this->configFactory->get('aseguramiento_automation.settings');
@@ -49,7 +57,16 @@ final class MailProviderManagerService {
     $account_id = (string) ($account['id'] ?? $account['mailbox'] ?? 'desconocido');
     $start = microtime(TRUE);
 
-    $messages = $provider->fetchMessages($account, $limit);
+    if ($provider instanceof SpamRescueInterface) {
+      $raw_settings = $settings->getRawData();
+      $provider->rescueFromSpam($account, fn(array $message): bool => $this->emailParser->isSpamRescueCandidate($message, $raw_settings));
+    }
+    // Claimed here, right before the caller queues them: an email already
+    // queued or settled is skipped whatever its flags in the mailbox.
+    $messages = array_values(array_filter(
+      $provider->fetchMessages($account, $limit),
+      fn(array $message): bool => $this->registry->claim($account, $message),
+    ));
     $count = count($messages);
     if ($count > 0) {
       $this->logger->info('[Aseguramiento] Se encontraron @count correos nuevos para procesar en el buzón @account.', [

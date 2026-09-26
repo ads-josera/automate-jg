@@ -49,6 +49,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
  *     "folder",
  *     "processed_folder",
  *     "error_folder",
+ *     "spam_folders",
  *     "imap_host",
  *     "imap_port",
  *     "imap_encryption",
@@ -82,6 +83,11 @@ final class MailAccount extends ConfigEntityBase {
 
   protected string $error_folder = 'Errors';
 
+  /**
+   * Spam folders where requests are looked for (comma separated).
+   */
+  protected string $spam_folders = 'spam, Junk';
+
   protected string $imap_host = '';
 
   protected int $imap_port = 993;
@@ -114,6 +120,7 @@ final class MailAccount extends ConfigEntityBase {
       'folder' => $this->folder,
       'processed_folder' => $this->processed_folder,
       'error_folder' => $this->error_folder,
+      'spam_folders' => $this->spam_folders,
       'imap_host' => $this->imap_host,
       'imap_port' => $this->imap_port,
       'imap_encryption' => $this->imap_encryption,

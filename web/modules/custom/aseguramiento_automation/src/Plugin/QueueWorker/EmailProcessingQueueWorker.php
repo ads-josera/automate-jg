@@ -7,6 +7,7 @@ namespace Drupal\aseguramiento_automation\Plugin\QueueWorker;
 use Drupal\aseguramiento_automation\Service\EmailParserService;
 use Drupal\aseguramiento_automation\Service\MailService;
 use Drupal\aseguramiento_automation\Service\MailProviderManagerService;
+use Drupal\aseguramiento_automation\Service\ProcessedMailRegistry;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -36,6 +37,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
     private readonly QueueManagerService $queueManager,
     private readonly MailService $mailService,
     private readonly SolicitudBatchService $batchService,
+    private readonly ProcessedMailRegistry $registry,
     private readonly LoggerInterface $logger,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -52,6 +54,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
       $container->get('aseguramiento_automation.queue_manager'),
       $container->get('aseguramiento_automation.mail'),
       $container->get('aseguramiento_automation.solicitud_batch'),
+      $container->get('aseguramiento_automation.processed_mail'),
       $container->get('logger.channel.aseguramiento_automation'),
     );
   }
@@ -88,6 +91,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
       if (!$filter['accepted']) {
         $provider->markProcessed($account, $message);
         $provider->moveMessage($account, $message, (string) ($account['error_folder'] ?? $settings['default_error_folder'] ?? 'Errors'));
+        $this->registry->done($account, $message, 'rejected');
         $this->logger->warning('[Aseguramiento] Correo rechazado. Identificador: @id. Asunto: @subject. Motivo: @errors', [
           '@id' => $message_id !== '' ? $message_id : ($message['id'] ?? ''),
           '@subject' => $message['subject'] ?? '',
@@ -130,6 +134,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
         ]);
       }
       $provider->markProcessed($account, $message);
+      $this->registry->done($account, $message, 'processed');
       $provider->moveMessage($account, $message, (string) ($account['processed_folder'] ?? $settings['default_processed_folder'] ?? 'Processed'));
       if ($debug) {
         $this->logger->info('[Aseguramiento][Depuración] Procesamiento de correo finalizado en @time ms.', [
@@ -141,7 +146,28 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
       $this->logger->error('[Aseguramiento] Error durante el procesamiento del correo. Detalle: @error', [
         '@error' => $e->getMessage(),
       ]);
+      $this->settleFailure($account, $message, $settings);
       throw $e;
+    }
+  }
+
+  /**
+   * Schedules a retry, or gives up and moves the email to the error folder.
+   */
+  private function settleFailure(array $account, array $message, array $settings): void {
+    $context = ['@from' => $message['from'] ?? 'remitente desconocido', '@subject' => $message['subject'] ?? 'sin asunto'];
+    try {
+      if ($this->registry->failed($account, $message)) {
+        $this->logger->warning('[Aseguramiento] El correo de @from (@subject) se reintentará en @minutes minutos.', $context + ['@minutes' => ProcessedMailRegistry::RETRY_DELAY / 60]);
+        return;
+      }
+      $this->logger->error('[Aseguramiento] Se abandonó el correo de @from (@subject) tras @n intentos fallidos. Revísalo en la carpeta de errores del buzón.', $context + ['@n' => ProcessedMailRegistry::MAX_ATTEMPTS]);
+      $this->providerManager->getProvider($account['provider'] ?? 'microsoft_graph')
+        ->moveMessage($account, $message, (string) ($account['error_folder'] ?? $settings['default_error_folder'] ?? 'Errors'));
+    }
+    catch (\Throwable $e) {
+      // The original error is the one that matters; this one is only logged.
+      $this->logger->warning('[Aseguramiento] No se pudo registrar el fallo del correo de @from. Detalle: @error', $context + ['@error' => $e->getMessage()]);
     }
   }
 

@@ -119,9 +119,12 @@ Soporta host, puerto, cifrado, usuario, contraseña y carpeta. Usa la librería 
 
 - Cifrado: `ssl` = TLS implícito (puerto 993); `tls` = STARTTLS (puerto 143); `none` = sin cifrado y sin validar certificado (solo redes de confianza).
 - Los correos se identifican por **UID**, nunca por número de secuencia: los números de secuencia se recorren al mover/expurgar otro correo y hacían que un elemento en cola apuntara al correo de otro cliente.
-- Al descargar los adjuntos el correo se marca como leído (misma semántica que la implementación anterior): si el proceso falla después, no se vuelve a leer ni a notificar; el error queda en el registro.
-- Las carpetas de destino (`Processed`, `Errors`) se buscan por nombre y también como `INBOX.<nombre>` (espacio de nombres de Dovecot en cPanel). Si no existen, el correo queda en la bandeja marcado como leído y se registra una advertencia.
-- Prueba de integración contra un servidor IMAP real (GreenMail) en `scripts/imap_integration_check.php`.
+- **Qué correos se leen:** los no leídos, y también los leídos que llegaron después de la primera lectura de la carpeta (alguien pudo abrir la solicitud en el webmail antes que el sistema). La marca "leído" ya no decide: cada correo se registra en `ProcessedMailRegistry` (por Message-ID) antes de encolarse, así que se procesa una sola vez aunque no se pueda mover de la bandeja.
+- **Primera lectura:** la primera vez que se lee una carpeta se guarda su siguiente UID (state `aseguramiento_automation.imap_uid_marks`); los correos que ya estaban (pruebas viejas, solicitudes ya contestadas) no se tocan. Si el servidor renumera la carpeta (cambia UIDVALIDITY) se vuelve a tomar la marca.
+- **Carpetas de spam** (campo "Carpetas de spam a revisar" de la cuenta; por defecto `spam, Junk`): cada correo nuevo en ellas se revisa una vez, sin descargarlo. Si el asunto tiene una de las palabras clave de solicitud (sin palabras clave configuradas no se rescata nada) y trae un Excel o PDF adjunto, se mueve a la bandeja de entrada y se procesa como cualquier otro; se registra en el log como "Solicitud rescatada". El resto del spam no se toca.
+- **Fallos:** si procesar un correo falla, se reintenta cada 15 minutos hasta 3 intentos; después se mueve a la carpeta de errores y se registra. El correo se marca como leído al descargar los adjuntos.
+- Las carpetas (`Processed`, `Errors`, spam) se buscan por nombre, también como `INBOX.<nombre>` (espacio de nombres de Dovecot en cPanel) y sin distinguir mayúsculas. Si la de destino no existe, el correo queda en la bandeja y se registra una advertencia; el registro evita que se procese otra vez.
+- Pruebas contra un servidor IMAP real (GreenMail): `scripts/imap_integration_check.php` y `scripts/mailbox_reading_check.php` (primera lectura, correo abierto en webmail, rescate de spam, sin duplicados, reintentos).
 
 ## Plantillas PDF
 

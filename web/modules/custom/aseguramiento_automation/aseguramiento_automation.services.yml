@@ -9,6 +9,9 @@ services:
       - '@config.factory'
       - '@http_client'
       - '@logger.channel.aseguramiento_automation'
+      - '@state'
+      - '@aseguramiento_automation.processed_mail'
+      - '@aseguramiento_automation.email_parser'
 
   aseguramiento_automation.microsoft_graph:
     class: Drupal\aseguramiento_automation\Service\MicrosoftGraphService
@@ -20,6 +23,12 @@ services:
     class: Drupal\aseguramiento_automation\Service\ImapService
     arguments:
       - '@logger.channel.aseguramiento_automation'
+      - '@state'
+
+  aseguramiento_automation.processed_mail:
+    class: Drupal\aseguramiento_automation\Service\ProcessedMailRegistry
+    arguments:
+      - '@keyvalue.expirable'
 
   aseguramiento_automation.email_parser:
     class: Drupal\aseguramiento_automation\Service\EmailParserService

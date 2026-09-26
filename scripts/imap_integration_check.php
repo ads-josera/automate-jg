@@ -132,7 +132,13 @@ if ($message) {
   catch (\Throwable $e) {
     $check(FALSE, 'Mover a una carpeta inexistente no interrumpe el proceso (' . $e->getMessage() . ')');
   }
-  $check($imap->fetchMessages($account, 25) === [], 'El correo D ya no aparece como pendiente (quedó marcado como leído)');
+  // Read but new: still listed, since the seen flag no longer decides. The
+  // registry is what keeps it from being processed again.
+  $registry = \Drupal::service('aseguramiento_automation.processed_mail');
+  $registry->done($account, $message, 'processed');
+  $manager = \Drupal::service('aseguramiento_automation.mail_provider_manager');
+  $check(array_column($imap->fetchMessages($account, 25), 'subject') === ['Solicitud de aseguramiento D'], 'El correo D se sigue listando aunque esté leído (se quedó en la bandeja)');
+  $check($manager->fetchForAccount($account) === [], 'El registro evita procesarlo otra vez');
 }
 
 if ($failures !== []) {

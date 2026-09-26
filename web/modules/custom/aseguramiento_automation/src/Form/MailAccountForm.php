@@ -114,6 +114,12 @@ final class MailAccountForm extends EntityForm {
         '#attributes' => $key === 'password' ? ['autocomplete' => 'new-password'] : [],
       ];
     }
+    $form['imap']['spam_folders'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Carpetas de spam a revisar'),
+      '#description' => $this->t('Separadas por coma. Si llega aquí un correo con el asunto de solicitud y un Excel o PDF adjunto, se mueve a la bandeja de entrada y se procesa. El resto del spam no se toca. Déjalo vacío para no revisar el spam.'),
+      '#default_value' => $entity->get('spam_folders'),
+    ];
 
     return $form;
   }

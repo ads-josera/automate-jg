@@ -106,6 +106,8 @@ aseguramiento_automation.mail_account.*:
       type: string
     error_folder:
       type: string
+    spam_folders:
+      type: string
     imap_host:
       type: string
     imap_port:
