@@ -121,6 +121,14 @@ function aseguramiento_automation_ensure_email_templates(): void {
 }
 
 /**
+ * Lets the gestor role confirm actions without Honeypot's time limit.
+ */
+function aseguramiento_automation_update_11008(): string {
+  aseguramiento_automation_ensure_gestor_role();
+  return 'El rol Gestor Aseguramiento ya puede confirmar acciones sin la espera de Honeypot.';
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {
@@ -142,13 +150,19 @@ function aseguramiento_automation_ensure_gestor_role(): void {
  * Returns default permissions for the Gestor Aseguramiento role.
  */
 function aseguramiento_automation_gestor_permissions(): array {
-  return [
+  $permissions = [
     'access administration pages',
     'view aseguramiento dashboard',
     'view aseguramiento constancia',
     'export aseguramiento data',
     'reprocess aseguramiento constancia',
   ];
+  // Honeypot rejects forms sent in under 5 seconds; staff confirming an
+  // action quickly is not a bot (administrators already bypass it).
+  if (\Drupal::moduleHandler()->moduleExists('honeypot')) {
+    $permissions[] = 'bypass honeypot protection';
+  }
+  return $permissions;
 }
 
 /**

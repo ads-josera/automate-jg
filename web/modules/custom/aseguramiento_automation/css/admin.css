@@ -2,6 +2,14 @@ body:has(.aseguramiento-dashboard) {
   background: #f4f6fb;
 }
 
+/* The front theme sets "hyphens: auto" on the body, which split names and
+   words across lines ("Alejan-dro"). Words wrap whole; only one that cannot
+   fit its box at all breaks. */
+.aseguramiento-dashboard {
+  hyphens: manual;
+  overflow-wrap: break-word;
+}
+
 body:has(.aseguramiento-standalone) {
   --drupal-displace-offset-top: 0px !important;
   margin: 0 !important;
@@ -374,8 +382,105 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 
 .aseguramiento-detail__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 10px;
   padding: 18px 24px 0;
+}
+
+/* Reprocess confirmation: same buttons as the list filters. */
+.aseguramiento-confirm__text {
+  max-width: 70ch;
+  margin: 0;
+  padding: 20px 24px 0;
+  color: #485568;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.aseguramiento-confirm .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 20px 24px 24px;
+}
+
+.aseguramiento-confirm .form-actions .button,
+.aseguramiento-confirm .form-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.aseguramiento-confirm .form-actions .button--primary {
+  border: 0;
+  background: #ff1384;
+  color: #fff;
+}
+
+.aseguramiento-confirm .form-actions .button--primary:hover {
+  background: #df0d72;
+}
+
+.aseguramiento-confirm .form-actions a {
+  border: 1px solid #d7dee9;
+  background: #fff;
+  color: #243a7b;
+}
+
+.aseguramiento-confirm .form-actions .button:focus-visible,
+.aseguramiento-confirm .form-actions a:focus-visible {
+  outline: 3px solid rgba(255, 19, 132, 0.35);
+  outline-offset: 2px;
+}
+
+/* Panels clip their content (rounded corners): wide tables scroll inside
+   this box instead of being cut off on narrow screens. */
+.aseguramiento-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Status badges and row buttons are single words: never split them. */
+.aseguramiento-table .aseguramiento-badge,
+.aseguramiento-table .aseguramiento-link-button {
+  white-space: nowrap;
+  hyphens: none;
+}
+
+/* Why a constancia in error cannot be reprocessed: the client must fix it. */
+.aseguramiento-detail__notice {
+  margin: 18px 24px 0;
+  padding: 14px 16px;
+  border: 1px solid #f3d6d6;
+  border-radius: 7px;
+  background: #fdf6f6;
+  color: #52606d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.aseguramiento-detail__notice strong {
+  color: #8a1238;
+}
+
+.aseguramiento-detail__notice p {
+  margin: 4px 0 8px;
+}
+
+.aseguramiento-detail__notice ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .aseguramiento-detail-table {
@@ -408,6 +513,15 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 .aseguramiento-error-panel summary {
   color: #b42352;
   font-weight: 900;
+}
+
+.aseguramiento-error-panel ul {
+  margin: 16px 0 0;
+  padding: 14px 16px 14px 34px;
+  border-radius: 7px;
+  background: #fff3f6;
+  color: #8a1238;
+  line-height: 1.6;
 }
 
 .aseguramiento-error-panel pre {

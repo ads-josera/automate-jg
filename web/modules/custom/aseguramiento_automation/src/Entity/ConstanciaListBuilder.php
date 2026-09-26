@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\aseguramiento_automation\Entity;
 
+use Drupal\aseguramiento_automation\Util\PageShell;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityListBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -100,6 +101,7 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       'status' => $this->t('Estado'),
       'changed' => $this->t('Actualizado'),
       'pdf' => $this->t('PDF'),
+      'accion' => $this->t('Acción'),
     ];
   }
 
@@ -126,6 +128,7 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       ],
       'changed' => $this->dateFormatter->format((int) $entity->getChangedTime(), 'short'),
       'pdf' => $this->pdfLink($entity),
+      'accion' => $this->reprocessLink($entity, $status),
     ];
 
     return $row;
@@ -137,6 +140,8 @@ final class ConstanciaListBuilder extends EntityListBuilder {
   public function render(): array {
     $table = parent::render();
     $table['table']['#attributes']['class'][] = 'aseguramiento-table';
+    $table['table']['#prefix'] = '<div class="aseguramiento-table-scroll">';
+    $table['table']['#suffix'] = '</div>';
 
     $build = [
       '#attached' => ['library' => ['aseguramiento_automation/admin']],
@@ -145,35 +150,7 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       ],
       '#type' => 'container',
       '#attributes' => ['class' => \aseguramiento_automation_standalone_classes(['aseguramiento-dashboard', 'aseguramiento-constancias-page'])],
-      'hero' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['aseguramiento-dashboard-hero', 'aseguramiento-dashboard-hero--compact']],
-        'brand' => [
-          '#markup' => '<div class="aseguramiento-dashboard-hero__brand"><img src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div><span>Documentos generados</span><strong>Constancias</strong></div></div>',
-        ],
-        'actions' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['aseguramiento-dashboard-hero__actions']],
-          'dashboard' => [
-            '#type' => 'link',
-            '#title' => $this->t('Panel'),
-            '#url' => Url::fromRoute('aseguramiento_automation.dashboard'),
-            '#attributes' => ['class' => ['aseguramiento-action-button']],
-          ],
-          'export' => [
-            '#type' => 'link',
-            '#title' => $this->t('Exportar'),
-            '#url' => Url::fromRoute('aseguramiento_automation.export'),
-            '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--primary']],
-          ],
-          'logout' => [
-            '#type' => 'link',
-            '#title' => $this->t('Cerrar sesión'),
-            '#url' => Url::fromRoute('user.logout'),
-            '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--logout']],
-          ],
-        ],
-      ],
+      'hero' => PageShell::hero('Documentos generados', 'Constancias', ['dashboard', 'export']),
       'panel' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['aseguramiento-panel']],
@@ -181,9 +158,7 @@ final class ConstanciaListBuilder extends EntityListBuilder {
         'filters' => $this->filtersBuild(),
         'table' => $table,
       ],
-      'footer' => [
-        '#markup' => '<footer class="aseguramiento-powered-footer">Powered by Josera MKT</footer>',
-      ],
+      'footer' => PageShell::footer(),
     ];
     $build['#attached']['library'][] = 'aseguramiento_automation/admin';
     return $build;
@@ -234,6 +209,27 @@ final class ConstanciaListBuilder extends EntityListBuilder {
       $options .= '<option value="' . $value . '"' . $selected . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</option>';
     }
     return $options;
+  }
+
+  /**
+   * "Reprocesar" for constancias that failed on our side.
+   *
+   * Uses the route's own access check, so the button shows exactly when the
+   * action is allowed (permission, "error" status, request data still valid).
+   */
+  private function reprocessLink(ConstanciaEntityInterface $entity, string $status): array {
+    $url = Url::fromRoute('aseguramiento_automation.reprocess', ['aseguramiento_constancia' => $entity->id()]);
+    if ($status !== 'error' || !$url->access()) {
+      return ['data' => ['#markup' => '']];
+    }
+    return [
+      'data' => [
+        '#type' => 'link',
+        '#title' => $this->t('Reprocesar'),
+        '#url' => $url,
+        '#attributes' => ['class' => ['aseguramiento-link-button']],
+      ],
+    ];
   }
 
   private function pdfLink(ConstanciaEntityInterface $entity): array {

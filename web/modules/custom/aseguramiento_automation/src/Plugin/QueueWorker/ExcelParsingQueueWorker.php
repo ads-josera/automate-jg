@@ -127,7 +127,12 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
           $errors++;
           $this->logger->warning('[Aseguramiento] Registro creado con errores de validación. ID: @id. Detalle: @errors', [
             '@id' => $entity->id(),
-            '@errors' => implode('; ', (array) $validation['errors']),
+            // Errors are grouped per field: ['campo' => ['mensaje', ...]].
+            '@errors' => implode('; ', array_map(
+              static fn(string $field, array $messages): string => $field . ': ' . implode(' ', $messages),
+              array_keys($validation['errors']),
+              $validation['errors'],
+            )),
           ]);
         }
         if ($validation['valid']) {

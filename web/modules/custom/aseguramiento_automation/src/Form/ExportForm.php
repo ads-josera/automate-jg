@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Form;
 
 use Drupal\aseguramiento_automation\Service\ExportService;
+use Drupal\aseguramiento_automation\Util\PageShell;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -37,35 +37,7 @@ final class ExportForm extends FormBase {
       'aseguramiento-export-page',
     ]);
 
-    $form['hero'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['aseguramiento-dashboard-hero', 'aseguramiento-dashboard-hero--compact']],
-      'brand' => [
-        '#markup' => '<div class="aseguramiento-dashboard-hero__brand"><img src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div><span>Reportes y datos</span><strong>Exportaciones</strong></div></div>',
-      ],
-      'actions' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['aseguramiento-dashboard-hero__actions']],
-        'dashboard' => [
-          '#type' => 'link',
-          '#title' => $this->t('Panel'),
-          '#url' => Url::fromRoute('aseguramiento_automation.dashboard'),
-          '#attributes' => ['class' => ['aseguramiento-action-button']],
-        ],
-        'constancias' => [
-          '#type' => 'link',
-          '#title' => $this->t('Constancias'),
-          '#url' => Url::fromRoute('entity.aseguramiento_constancia.collection'),
-          '#attributes' => ['class' => ['aseguramiento-action-button']],
-        ],
-        'logout' => [
-          '#type' => 'link',
-          '#title' => $this->t('Cerrar sesión'),
-          '#url' => Url::fromRoute('user.logout'),
-          '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--logout']],
-        ],
-      ],
-    ];
+    $form['hero'] = PageShell::hero('Reportes y datos', 'Exportaciones', ['dashboard', 'constancias']);
 
     $form['export_panel'] = [
       '#type' => 'container',
@@ -108,9 +80,7 @@ final class ExportForm extends FormBase {
       '#value' => $this->t('Exportar'),
       '#attributes' => ['class' => ['aseguramiento-submit-button']],
     ];
-    $form['footer'] = [
-      '#markup' => '<footer class="aseguramiento-powered-footer">Powered by Josera MKT</footer>',
-    ];
+    $form['footer'] = PageShell::footer();
     return $form;
   }
 

@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Controller;
 
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntityInterface;
-use Drupal\aseguramiento_automation\Service\QueueManagerService;
+use Drupal\aseguramiento_automation\Util\PageShell;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Administrative operations dashboard.
@@ -38,7 +37,6 @@ final class DashboardController extends ControllerBase {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $automationEntityTypeManager,
-    private readonly QueueManagerService $queueManager,
     private readonly DateFormatterInterface $dateFormatter,
   ) {
   }
@@ -46,7 +44,6 @@ final class DashboardController extends ControllerBase {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('entity_type.manager'),
-      $container->get('aseguramiento_automation.queue_manager'),
       $container->get('date.formatter'),
     );
   }
@@ -131,35 +128,7 @@ final class DashboardController extends ControllerBase {
       '#attached' => ['library' => ['aseguramiento_automation/admin']],
       '#type' => 'container',
       '#attributes' => ['class' => \aseguramiento_automation_standalone_classes(['aseguramiento-dashboard'])],
-      'hero' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['aseguramiento-dashboard-hero']],
-        'brand' => [
-          '#markup' => '<div class="aseguramiento-dashboard-hero__brand"><img src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div><span>Automatización documental</span><strong>Panel de aseguramiento</strong></div></div>',
-        ],
-        'actions' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['aseguramiento-dashboard-hero__actions']],
-          'constancias' => [
-            '#type' => 'link',
-            '#title' => $this->t('Constancias'),
-            '#url' => Url::fromRoute('entity.aseguramiento_constancia.collection'),
-            '#attributes' => ['class' => ['aseguramiento-action-button']],
-          ],
-          'export' => [
-            '#type' => 'link',
-            '#title' => $this->t('Exportar'),
-            '#url' => Url::fromRoute('aseguramiento_automation.export'),
-            '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--primary']],
-          ],
-          'logout' => [
-            '#type' => 'link',
-            '#title' => $this->t('Cerrar sesión'),
-            '#url' => Url::fromRoute('user.logout'),
-            '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--logout']],
-          ],
-        ],
-      ],
+      'hero' => PageShell::hero('Automatización documental', 'Panel de aseguramiento', ['constancias', 'export'], FALSE),
       'stats' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['aseguramiento-stats']],
@@ -177,6 +146,8 @@ final class DashboardController extends ControllerBase {
         'header' => ['#markup' => '<div class="aseguramiento-panel__header"><div><span>Documentos</span><h2>Constancias generadas</h2></div></div>'],
         'table' => [
           '#type' => 'table',
+          '#prefix' => '<div class="aseguramiento-table-scroll">',
+          '#suffix' => '</div>',
           '#attributes' => ['class' => ['aseguramiento-table']],
           '#header' => [$this->t('Folio'), $this->t('Cliente'), $this->t('Aseguradora'), $this->t('Estado'), $this->t('Actualizado'), $this->t('PDF')],
           '#rows' => $generated_rows,
@@ -189,25 +160,16 @@ final class DashboardController extends ControllerBase {
         'header' => ['#markup' => '<div class="aseguramiento-panel__header"><div><span>Actividad</span><h2>Últimos movimientos</h2></div></div>'],
         'table' => [
           '#type' => 'table',
+          '#prefix' => '<div class="aseguramiento-table-scroll">',
+          '#suffix' => '</div>',
           '#attributes' => ['class' => ['aseguramiento-table']],
           '#header' => [$this->t('Folio'), $this->t('Nombre'), $this->t('Póliza'), $this->t('Estado'), $this->t('Actualizado')],
           '#rows' => $rows,
           '#empty' => $this->t('Todavía no hay registros de automatización.'),
         ],
       ],
-      'footer' => [
-        '#markup' => '<footer class="aseguramiento-powered-footer">Powered by Josera MKT</footer>',
-      ],
+      'footer' => PageShell::footer(),
     ];
-  }
-
-  public function reprocess(ConstanciaEntityInterface $aseguramiento_constancia): RedirectResponse {
-    $aseguramiento_constancia->set('status', 'validated');
-    $aseguramiento_constancia->set('errores', '');
-    $aseguramiento_constancia->save();
-    $this->queueManager->enqueue(QueueManagerService::PDF_QUEUE, ['constancia_id' => $aseguramiento_constancia->id()]);
-    $this->messenger()->addStatus($this->t('La constancia @folio fue enviada a reproceso.', ['@folio' => $aseguramiento_constancia->label()]));
-    return $this->redirect('entity.aseguramiento_constancia.collection');
   }
 
   private function statusLabel(string $status): string {

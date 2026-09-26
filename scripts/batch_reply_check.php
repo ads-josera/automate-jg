@@ -155,7 +155,7 @@ $send([
   'solicitud_2.xlsx' => $excel('Cliente B2', []),
   'solicitud_3.xlsx' => $excel('Cliente B3', []),
   'solicitud_4.xlsx' => $excel('Cliente B4', ['I23' => '']),
-], 'lote-b@cliente.example.com');
+], $lote_b_id = 'lote-b-' . uniqid() . '@cliente.example.com');
 $run();
 $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe UN solo correo (recibió ' . count($mails) . ')');
@@ -163,7 +163,9 @@ $check(($mails[0]['attachments'] ?? 0) === 3, 'Con los 3 PDF adjuntos (tiene ' .
 $check(str_contains($mails[0]['html'] ?? '', 'Medio de transporte: falta llenarlo'), 'Dice qué corregir: "Medio de transporte: falta llenarlo"');
 $check(str_contains($mails[0]['html'] ?? '', 'solicitud_4.xlsx'), 'Indica en qué archivo está el error');
 $check($team === [] || array_intersect($team, $mails[0]['bcc'] ?? []) !== [], 'El encargado recibe copia oculta');
-$check(($mails[0]['headers']['In-Reply-To'][0] ?? '') === '<lote-b@cliente.example.com>', 'Va como respuesta al correo del cliente (In-Reply-To: ' . ($mails[0]['headers']['In-Reply-To'][0] ?? 'ninguno') . ')');
+// A unique id per run: the processed-mail registry never takes the same
+// Message-ID twice.
+$check(($mails[0]['headers']['In-Reply-To'][0] ?? '') === '<' . $lote_b_id . '>', 'Va como respuesta al correo del cliente (In-Reply-To: ' . ($mails[0]['headers']['In-Reply-To'][0] ?? 'ninguno') . ')');
 $from_domain = substr((string) strrchr($mails[0]['from'] ?? '', '@'), 1);
 $check($from_domain !== '' && str_ends_with($mails[0]['message_id'] ?? '', '@' . $from_domain), 'Message-ID con el dominio del remitente (' . ($mails[0]['message_id'] ?? '') . ')');
 $check((bool) preg_match('/^AA-\S+ \| Cliente B1\r?$/m', $mails[0]['text'] ?? ''), 'Texto plano: una constancia por renglón');

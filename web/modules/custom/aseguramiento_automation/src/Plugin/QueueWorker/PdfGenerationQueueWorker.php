@@ -107,8 +107,9 @@ final class PdfGenerationQueueWorker extends QueueWorkerBase implements Containe
           '@time' => number_format((microtime(TRUE) - $start) * 1000, 2),
         ]);
       }
-      // Constancias from a batch are answered together by the batch reply.
-      if ((string) $entity->get('lote')->value === '') {
+      // Constancias from a batch are answered together by the batch reply,
+      // unless reprocessed later ("reply"): that reply already went out.
+      if ((string) $entity->get('lote')->value === '' || !empty($data['reply'])) {
         $this->queueManager->enqueue(QueueManagerService::MAIL_QUEUE, ['constancia_id' => $entity->id()]);
       }
     }
@@ -123,7 +124,7 @@ final class PdfGenerationQueueWorker extends QueueWorkerBase implements Containe
       $entity->set('status', 'error');
       $entity->set('errores', trim((string) $entity->get('errores')->value . "\nNo fue posible generar el PDF: " . $e->getMessage()));
       $entity->save();
-      if ((string) $entity->get('lote')->value === '') {
+      if ((string) $entity->get('lote')->value === '' || !empty($data['reply'])) {
         throw $e;
       }
     }

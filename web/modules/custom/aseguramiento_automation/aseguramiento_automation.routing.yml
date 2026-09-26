@@ -128,10 +128,10 @@ aseguramiento_automation.constancia_pdf:
 aseguramiento_automation.reprocess:
   path: '/admin/aseguramiento/constancia/{aseguramiento_constancia}/reprocess'
   defaults:
-    _controller: '\Drupal\aseguramiento_automation\Controller\DashboardController::reprocess'
+    _form: '\Drupal\aseguramiento_automation\Form\ReprocessConstanciaForm'
     _title: 'Reprocesar constancia'
   requirements:
-    _permission: 'reprocess aseguramiento constancia'
+    _custom_access: '\Drupal\aseguramiento_automation\Form\ReprocessConstanciaForm::access'
   options:
     parameters:
       aseguramiento_constancia:

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Controller;
 
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntityInterface;
+use Drupal\aseguramiento_automation\Service\ConstanciaReprocessService;
+use Drupal\aseguramiento_automation\Util\PageShell;
+use Drupal\aseguramiento_automation\Util\SolicitudErrorFormatter;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\File\FileSystemInterface;
@@ -21,6 +24,7 @@ final class ConstanciaController extends ControllerBase {
   public function __construct(
     private readonly DateFormatterInterface $dateFormatter,
     private readonly FileSystemInterface $fileSystem,
+    private readonly ConstanciaReprocessService $reprocess,
   ) {
   }
 
@@ -28,6 +32,7 @@ final class ConstanciaController extends ControllerBase {
     return new self(
       $container->get('date.formatter'),
       $container->get('file_system'),
+      $container->get('aseguramiento_automation.reprocess'),
     );
   }
 
@@ -42,35 +47,7 @@ final class ConstanciaController extends ControllerBase {
       '#attached' => ['library' => ['aseguramiento_automation/admin']],
       '#type' => 'container',
       '#attributes' => ['class' => \aseguramiento_automation_standalone_classes(['aseguramiento-dashboard', 'aseguramiento-detail-page'])],
-      'hero' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['aseguramiento-dashboard-hero', 'aseguramiento-dashboard-hero--compact']],
-        'brand' => [
-          '#markup' => '<div class="aseguramiento-dashboard-hero__brand"><img src="/modules/custom/aseguramiento_automation/assets/login/logo-jg-white.svg" alt="JG Mylard"><div><span>Detalle de constancia</span><strong>' . $this->escape($titulo) . '</strong></div></div>',
-        ],
-        'actions' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['aseguramiento-dashboard-hero__actions']],
-          'dashboard' => [
-            '#type' => 'link',
-            '#title' => $this->t('Panel'),
-            '#url' => Url::fromRoute('aseguramiento_automation.dashboard'),
-            '#attributes' => ['class' => ['aseguramiento-action-button']],
-          ],
-          'constancias' => [
-            '#type' => 'link',
-            '#title' => $this->t('Constancias'),
-            '#url' => Url::fromRoute('entity.aseguramiento_constancia.collection'),
-            '#attributes' => ['class' => ['aseguramiento-action-button']],
-          ],
-          'logout' => [
-            '#type' => 'link',
-            '#title' => $this->t('Cerrar sesión'),
-            '#url' => Url::fromRoute('user.logout'),
-            '#attributes' => ['class' => ['aseguramiento-action-button', 'aseguramiento-action-button--logout']],
-          ],
-        ],
-      ],
+      'hero' => PageShell::hero('Detalle de constancia', $titulo, ['dashboard', 'constancias']),
     ];
 
     $build['summary'] = [
@@ -98,6 +75,22 @@ final class ConstanciaController extends ControllerBase {
       ];
     }
 
+    $reprocess = $status === 'error' ? $this->reprocess->check($aseguramiento_constancia) : ['allowed' => FALSE, 'fields' => []];
+    if ($reprocess['allowed'] && $this->currentUser()->hasPermission('reprocess aseguramiento constancia')) {
+      $build['summary']['actions']['reprocess'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Reprocesar y enviar'),
+        '#url' => Url::fromRoute('aseguramiento_automation.reprocess', ['aseguramiento_constancia' => $aseguramiento_constancia->id()]),
+        '#attributes' => ['class' => ['aseguramiento-link-button']],
+      ];
+    }
+    if ($reprocess['fields'] !== []) {
+      $items = implode('', array_map(fn(string $field): string => '<li>' . $this->escape($field) . '</li>', $reprocess['fields']));
+      $build['summary']['correction'] = [
+        '#markup' => '<div class="aseguramiento-detail__notice" role="note"><strong>' . $this->t('El cliente debe corregir la solicitud') . '</strong><p>' . $this->t('No se puede reprocesar: el PDF saldría con los mismos datos. Pídele que envíe de nuevo el formato corregido respondiendo al correo que recibió.') . '</p><ul>' . $items . '</ul></div>',
+      ];
+    }
+
     $rows = [
       [$this->t('Folio'), $aseguramiento_constancia->label()],
       [$this->t('Estado'), $this->statusLabel($status)],
@@ -115,6 +108,8 @@ final class ConstanciaController extends ControllerBase {
 
     $build['summary']['table'] = [
       '#type' => 'table',
+      '#prefix' => '<div class="aseguramiento-table-scroll">',
+      '#suffix' => '</div>',
       '#attributes' => ['class' => ['aseguramiento-table', 'aseguramiento-detail-table']],
       '#header' => [$this->t('Campo'), $this->t('Valor')],
       '#rows' => array_map(static fn(array $row): array => [
@@ -125,14 +120,17 @@ final class ConstanciaController extends ControllerBase {
       ], $rows),
     ];
 
-    $errors = trim((string) $aseguramiento_constancia->get('errores')->value);
-    if ($errors !== '') {
+    // Stored as JSON per field plus free lines; shown as sentences. Field
+    // errors already listed in the correction notice are not repeated.
+    $described = SolicitudErrorFormatter::describe((string) $aseguramiento_constancia->get('errores')->value);
+    $lines = array_merge($reprocess['fields'] === [] ? $described['fields'] : [], $described['internal']);
+    if ($lines !== []) {
       $build['errors'] = [
         '#type' => 'details',
         '#attributes' => ['class' => ['aseguramiento-panel', 'aseguramiento-error-panel']],
         '#title' => $this->t('Errores'),
         '#open' => TRUE,
-        'content' => ['#markup' => '<pre>' . $this->escape($errors) . '</pre>'],
+        'content' => ['#markup' => '<ul>' . implode('', array_map(fn(string $line): string => '<li>' . $this->escape($line) . '</li>', $lines)) . '</ul>'],
       ];
     }
 
@@ -146,9 +144,7 @@ final class ConstanciaController extends ControllerBase {
       ];
     }
 
-    $build['footer'] = [
-      '#markup' => '<footer class="aseguramiento-powered-footer">Powered by Josera MKT</footer>',
-    ];
+    $build['footer'] = PageShell::footer();
 
     return $build;
   }

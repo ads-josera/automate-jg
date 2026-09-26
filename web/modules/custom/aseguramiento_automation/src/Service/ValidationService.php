@@ -15,7 +15,14 @@ final class ValidationService {
   public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {
   }
 
-  public function validateRow(array $row): array {
+  /**
+   * Validates a request row.
+   *
+   * @param int|null $exclude_id
+   *   Constancia the row belongs to, when validating it again: its own
+   *   policy number must not count as already existing.
+   */
+  public function validateRow(array $row, ?int $exclude_id = NULL): array {
     $errors = [];
     foreach (['solicitante', 'beneficiario_nombre', 'mercancia_asegurada', 'fecha_inicio_seguro', 'origen_ciudad', 'destino_ciudad', 'medio_transporte', 'valor_factura', 'suma_asegurada_total'] as $required) {
       if (trim((string) ($row[$required] ?? '')) === '') {
@@ -41,16 +48,19 @@ final class ValidationService {
         $errors[$date_field][] = 'La fecha no es válida.';
       }
     }
-    if (!empty($row['poliza']) && $this->policyExists((string) $row['poliza'], (string) ($row['aseguradora'] ?? ''))) {
+    if (!empty($row['poliza']) && $this->policyExists((string) $row['poliza'], (string) ($row['aseguradora'] ?? ''), $exclude_id)) {
       $errors['poliza'][] = 'La póliza ya existe.';
     }
     return ['valid' => $errors === [], 'errors' => $errors];
   }
 
-  private function policyExists(string $policy, string $insurer): bool {
+  private function policyExists(string $policy, string $insurer, ?int $exclude_id = NULL): bool {
     $query = $this->entityTypeManager->getStorage('aseguramiento_constancia')->getQuery()
       ->accessCheck(FALSE)
       ->condition('poliza', $policy);
+    if ($exclude_id !== NULL) {
+      $query->condition('id', $exclude_id, '<>');
+    }
     if ($insurer !== '') {
       $query->condition('aseguradora', $insurer);
     }
