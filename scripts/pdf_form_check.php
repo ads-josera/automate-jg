@@ -78,7 +78,7 @@ $check(($row['solicitante'] ?? '') === $expected['solicitante'] && ($row['solici
 echo PHP_EOL . 'Casos que deben rechazarse con un mensaje claro' . PHP_EOL;
 foreach ([
   'F_protegido.pdf' => 'contraseña',
-  '../../../docs/Solicitud_aseguramiento_formato.pdf' => 'no tiene campos rellenables',
+  '../../../docs/Solicitud_aseguramiento.pdf' => 'no tiene campos rellenables',
 ] as $file => $words) {
   try {
     $parser->parse($dir . $file);

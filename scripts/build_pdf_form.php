@@ -26,7 +26,7 @@ declare(strict_types=1);
 use Drupal\aseguramiento_automation\Service\ValidationService;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
-$source = DRUPAL_ROOT . '/../docs/Solicitud_aseguramiento_formato.pdf';
+$source = DRUPAL_ROOT . '/../docs/Solicitud_aseguramiento.pdf';
 $target = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_rellenable.pdf';
 
 // Same lists as the Excel form's data validations.
