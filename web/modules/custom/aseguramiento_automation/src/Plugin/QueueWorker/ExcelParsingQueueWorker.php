@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Plugin\QueueWorker;
 
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
+use Drupal\aseguramiento_automation\Exception\RequestFileException;
 use Drupal\aseguramiento_automation\Service\ExcelParserService;
 use Drupal\aseguramiento_automation\Service\PdfFormParserService;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
@@ -165,7 +166,9 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
         throw $e;
       }
       // Tell the client in the batch reply instead of losing the file.
-      $this->batchService->fileFailed($lote, $file_key, 'No pudimos leer el archivo. Verifica que sea el formato de solicitud (Excel o PDF rellenable) y que no esté dañado.');
+      $this->batchService->fileFailed($lote, $file_key, $e instanceof RequestFileException
+        ? $e->getMessage()
+        : 'No pudimos leer el archivo. Verifica que sea el formato de solicitud (Excel o PDF rellenable) y que no esté dañado.');
     }
   }
 

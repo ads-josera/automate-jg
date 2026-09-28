@@ -193,6 +193,23 @@ $check(count($mails) === 1, 'El cliente recibe 1 correo (recibió ' . count($mai
 $check(($mails[0]['attachments'] ?? 0) === 1, 'Con el PDF del archivo válido');
 $check(str_contains($mails[0]['html'] ?? '', 'No pudimos leer el archivo'), 'Avisa que el archivo dañado no se pudo leer');
 
+echo PHP_EOL . 'Escenario F: formato PDF rellenable (uno bien, uno incompleto, uno protegido)' . PHP_EOL;
+$mailpit('DELETE');
+$fixtures = DRUPAL_ROOT . '/../scripts/fixtures/pdf-form/';
+$send([
+  'solicitud_pdf_bien.pdf' => $fixtures . 'A_pypdf_completo.pdf',
+  'solicitud_pdf_incompleta.pdf' => $fixtures . 'H_sin_medio_transporte.pdf',
+  'solicitud_pdf_protegida.pdf' => $fixtures . 'F_protegido.pdf',
+]);
+$run();
+$mails = $toClient();
+$check(count($mails) === 1, 'El cliente recibe UN solo correo (recibió ' . count($mails) . ')');
+$check(($mails[0]['attachments'] ?? 0) === 1, 'Con la constancia del PDF correcto (adjuntos: ' . ($mails[0]['attachments'] ?? 0) . ')');
+$check(str_contains($mails[0]['html'] ?? '', 'Medio de transporte: falta llenarlo'), 'Dice qué falta en el PDF incompleto');
+$check(str_contains($mails[0]['html'] ?? '', 'protegido con contraseña'), 'Explica que el PDF protegido debe guardarse sin contraseña');
+$created = $constancias->loadByProperties(['solicitante' => 'José Pérez (Prueba) \\ Ñ', 'status' => 'sent']);
+$check($created !== [], 'La constancia guarda el nombre con acentos y paréntesis tal cual');
+
 echo PHP_EOL . 'Escenario E: volver a correr el proceso' . PHP_EOL;
 $mailpit('DELETE');
 $run();
