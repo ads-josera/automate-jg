@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\File\FileExists;
 use Drupal\user\Entity\Role;
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
 use Drupal\aseguramiento_automation\Mail\EmailTemplateDefaults;
@@ -126,6 +127,49 @@ function aseguramiento_automation_ensure_email_templates(): void {
 function aseguramiento_automation_update_11008(): string {
   aseguramiento_automation_ensure_gestor_role();
   return 'El rol Gestor Aseguramiento ya puede confirmar acciones sin la espera de Honeypot.';
+}
+
+/**
+ * Constancia: date and amount formats, and corrected footer in the background.
+ */
+function aseguramiento_automation_update_11009(): string {
+  $messages = [];
+  $template = \Drupal::entityTypeManager()->getStorage('aseguramiento_pdf_template')->load('constancia');
+  if (!$template) {
+    return 'No existe la plantilla "constancia"; no se cambió nada.';
+  }
+
+  // "2026-09-25" -> "25/09/2026"; "165000.00" -> "$165,000.00 USD".
+  $formats = ['fecha_inicio_seguro' => 'date', 'suma_asegurada_total' => 'currency'];
+  $mappings = (array) $template->get('mappings');
+  foreach ($mappings as &$mapping) {
+    if (isset($formats[$mapping['field'] ?? '']) && trim((string) ($mapping['format'] ?? '')) === '') {
+      $mapping['format'] = $formats[$mapping['field']];
+      $messages[] = sprintf('Formato "%s" en %s.', $mapping['format'], $mapping['field']);
+    }
+  }
+  unset($mapping);
+  $template->set('mappings', $mappings)->save();
+
+  // The footer said "JY MYLARD" and missed "Valentín". Only the exact file
+  // that was reviewed is replaced; anything else is left alone.
+  $file_system = \Drupal::service('file_system');
+  $uri = (string) $template->get('file_uri');
+  $original = '148d07fc0abf50e2d02ebd05f0e54ab75bfcea731d76f6092f2067420f157fb5';
+  $corrected = \Drupal::service('extension.list.module')->getPath('aseguramiento_automation') . '/assets/templates/Constancia.pdf';
+  $current = $uri !== '' && is_file($uri) ? hash_file('sha256', $uri) : '';
+  if ($current === hash_file('sha256', $corrected)) {
+    $messages[] = 'El PDF de fondo ya estaba corregido.';
+  }
+  elseif ($current === $original) {
+    $file_system->copy($uri, preg_replace('/\.pdf$/', '', $uri) . '-anterior-20260928.pdf', FileExists::Replace);
+    $file_system->copy($corrected, $uri, FileExists::Replace);
+    $messages[] = 'PDF de fondo corregido (JG MYLARD, Núm., Valentín); el anterior quedó como respaldo.';
+  }
+  else {
+    $messages[] = 'El PDF de fondo no es el que se revisó; no se reemplazó. Corrige el pie a mano.';
+  }
+  return implode(' ', $messages);
 }
 
 /**

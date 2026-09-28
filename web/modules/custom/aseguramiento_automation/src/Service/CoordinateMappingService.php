@@ -33,10 +33,21 @@ final class CoordinateMappingService {
     return $normalized;
   }
 
+  private static function currencyCode(string $currency): string {
+    return match (mb_strtolower(trim($currency))) {
+      'usd' => 'USD',
+      'pesos', 'mxn' => 'MXN',
+      default => '',
+    };
+  }
+
   public function valueFor(array $mapping, array $data): string {
     $value = (string) ($data[$mapping['field']] ?? '');
     return match ($mapping['format'] ?? '') {
-      'currency' => is_numeric(str_replace([',', '$'], '', $value)) ? '$' . number_format((float) str_replace([',', '$'], '', $value), 2) : $value,
+      // "$165,000.00 USD": in an insurance document "$" alone is ambiguous.
+      'currency' => is_numeric(str_replace([',', '$'], '', $value))
+        ? trim('$' . number_format((float) str_replace([',', '$'], '', $value), 2) . ' ' . self::currencyCode((string) ($data['moneda'] ?? '')))
+        : $value,
       'date' => strtotime($value) ? date('d/m/Y', strtotime($value)) : $value,
       'uppercase' => mb_strtoupper($value),
       default => $value,

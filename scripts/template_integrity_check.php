@@ -49,7 +49,15 @@ $protection = $form->getProtection();
 $check((bool) $protection->getSheet(), 'La hoja está protegida');
 $check(!$protection->getSelectUnlockedCells(), 'Se pueden seleccionar las celdas de captura');
 $check($protection->getInsertRows() && $protection->getDeleteRows() && $protection->getInsertColumns() && $protection->getDeleteColumns(), 'No se pueden insertar ni borrar filas o columnas');
-$check(count($form->getConditionalStylesCollection()) === 9, 'Alerta roja en los 9 campos obligatorios (hay ' . count($form->getConditionalStylesCollection()) . ')');
+$required = \Drupal\aseguramiento_automation\Service\ValidationService::REQUIRED;
+$alerted = [];
+foreach (array_keys($form->getConditionalStylesCollection()) as $range) {
+  $alerted[] = explode(':', $range)[0];
+}
+$missing = array_filter($required, static fn(string $key): bool => !in_array($inputs[$key] ?? '', $alerted, TRUE));
+$check($missing === [], 'Alerta roja en los ' . count($required) . ' campos obligatorios' . ($missing ? ' (faltan: ' . implode(', ', $missing) . ')' : ''));
+$footer = (string) $form->getCell('B56')->getValue();
+$check(str_contains($footer, 'www.jgmylard.com') && !str_contains($footer, 'jgmylard.com.mx') && str_contains($footer, 'JG MYLARD'), 'Pie con JG MYLARD y www.jgmylard.com');
 $dates = array_filter($form->getDataValidationCollection(), static fn($v): bool => $v->getType() === 'date');
 $date_ranges = implode(' ', array_keys($dates));
 $check(str_contains($date_ranges, 'J8') && str_contains($date_ranges, 'D23'), 'Validación de fecha en "Fecha" (J8) y "Fecha inicio seguro" (D23)');

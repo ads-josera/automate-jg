@@ -23,6 +23,7 @@
 
 declare(strict_types=1);
 
+use Drupal\aseguramiento_automation\Service\ValidationService;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
 $source = DRUPAL_ROOT . '/../docs/Solicitud_aseguramiento_formato.pdf';
@@ -37,9 +38,8 @@ $lists = [
 ];
 $dates = ['solicitud_fecha', 'fecha_inicio_seguro'];
 $amounts = ['valor_factura', 'gastos_fletes', 'gastos_incrementales', 'seguro_contenedor', 'suma_asegurada_total'];
-// ValidationService::validateRow() required fields, plus the currency (the
-// design marks it; amount limits depend on it).
-$required = ['solicitante', 'beneficiario_nombre', 'mercancia_asegurada', 'fecha_inicio_seguro', 'origen_ciudad', 'destino_ciudad', 'medio_transporte', 'valor_factura', 'suma_asegurada_total', 'moneda'];
+// The same required fields the server validates.
+$required = ValidationService::REQUIRED;
 
 // key => [x0, y0, x1, y1] of the box, measured on the design.
 $boxes = [

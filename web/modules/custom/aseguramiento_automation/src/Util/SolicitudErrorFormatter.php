@@ -24,6 +24,7 @@ final class SolicitudErrorFormatter {
     'El correo electrónico no es válido.' => 'el correo electrónico no es válido',
     'El RFC no es válido.' => 'el RFC no es válido',
     'La póliza ya existe.' => 'esa póliza ya fue registrada',
+    'La moneda no es válida.' => 'elige USD o PESOS',
   ];
 
   private const EXTRA_LABELS = [

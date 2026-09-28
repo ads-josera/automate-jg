@@ -174,13 +174,14 @@ $check(str_contains($mails[0]['html'] ?? '', 'adjuntando solo el archivo corregi
 
 echo PHP_EOL . 'Escenario C: solo un Excel con error de fecha' . PHP_EOL;
 $mailpit('DELETE');
-$send(['solicitud_c.xlsx' => $excel('Cliente C', ['D23' => '24 petiembre 2026'])]);
+$send(['solicitud_c.xlsx' => $excel('Cliente C', ['D23' => '24 petiembre 2026', 'D29' => ''])]);
 $run();
 $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe 1 correo (recibió ' . count($mails) . ')');
 $check(($mails[0]['attachments'] ?? -1) === 0, 'Sin adjuntos');
 $check(str_starts_with($mails[0]['subject'] ?? '', strtok((string) \Drupal::config('aseguramiento_automation.settings')->get('batch_subject_errors'), '{')), 'Asunto de corrección ("' . ($mails[0]['subject'] ?? '') . '")');
 $check(str_contains($mails[0]['html'] ?? '', 'la fecha no es válida; escríbela como 24/09/2026'), 'Explica cómo escribir la fecha');
+$check(str_contains($mails[0]['html'] ?? '', 'Moneda: falta llenarlo'), 'La moneda es obligatoria');
 
 echo PHP_EOL . 'Escenario D: un archivo dañado junto a uno válido' . PHP_EOL;
 $mailpit('DELETE');

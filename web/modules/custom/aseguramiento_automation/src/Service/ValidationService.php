@@ -12,6 +12,23 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
  */
 final class ValidationService {
 
+  /**
+   * Required request fields; the forms mark the same ones (red in the Excel,
+   * asterisk and red background in the PDF).
+   */
+  public const REQUIRED = [
+    'solicitante',
+    'beneficiario_nombre',
+    'mercancia_asegurada',
+    'fecha_inicio_seguro',
+    'origen_ciudad',
+    'destino_ciudad',
+    'medio_transporte',
+    'moneda',
+    'valor_factura',
+    'suma_asegurada_total',
+  ];
+
   public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {
   }
 
@@ -24,10 +41,16 @@ final class ValidationService {
    */
   public function validateRow(array $row, ?int $exclude_id = NULL): array {
     $errors = [];
-    foreach (['solicitante', 'beneficiario_nombre', 'mercancia_asegurada', 'fecha_inicio_seguro', 'origen_ciudad', 'destino_ciudad', 'medio_transporte', 'valor_factura', 'suma_asegurada_total'] as $required) {
+    foreach (self::REQUIRED as $required) {
       if (trim((string) ($row[$required] ?? '')) === '') {
         $errors[$required][] = 'El campo obligatorio está vacío.';
       }
+    }
+    // Amounts are only meaningful with their currency (and amount limits
+    // depend on it): only the two options of the request form.
+    $currency = mb_strtolower(trim((string) ($row['moneda'] ?? '')));
+    if ($currency !== '' && !in_array($currency, ['usd', 'pesos'], TRUE)) {
+      $errors['moneda'][] = 'La moneda no es válida.';
     }
     if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
       $errors['email'][] = 'El correo electrónico no es válido.';
