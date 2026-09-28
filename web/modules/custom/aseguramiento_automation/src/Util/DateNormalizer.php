@@ -17,6 +17,21 @@ namespace Drupal\aseguramiento_automation\Util;
  */
 final class DateNormalizer {
 
+  private const SPANISH_MONTHS = [
+    'enero' => 1, 'ene' => 1,
+    'febrero' => 2, 'feb' => 2,
+    'marzo' => 3, 'mar' => 3,
+    'abril' => 4, 'abr' => 4,
+    'mayo' => 5, 'may' => 5,
+    'junio' => 6, 'jun' => 6,
+    'julio' => 7, 'jul' => 7,
+    'agosto' => 8, 'ago' => 8,
+    'septiembre' => 9, 'setiembre' => 9, 'sep' => 9, 'sept' => 9, 'set' => 9,
+    'octubre' => 10, 'oct' => 10,
+    'noviembre' => 11, 'nov' => 11,
+    'diciembre' => 12, 'dic' => 12,
+  ];
+
   /**
    * Returns the date as Y-m-d, or NULL when empty or not a real date.
    */
@@ -41,6 +56,16 @@ final class DateNormalizer {
         $year += 2000;
       }
       return self::build($year, (int) $m[2], (int) $m[1]);
+    }
+
+    // Spanish month names, as clients type them: "29-octubre-26",
+    // "30 de octubre de 2026", "1-ene-2027" (strtotime() only knows English).
+    if (preg_match('/^(\d{1,2})(?:\s+de)?[\s\/.\-]+(\p{L}+)\.?(?:\s+(?:de|del))?[\s\/.\-]+(\d{2}|\d{4})$/iu', $value, $m)) {
+      $month = self::SPANISH_MONTHS[mb_strtolower($m[2])] ?? NULL;
+      if ($month !== NULL) {
+        $year = (int) $m[3] + (strlen($m[3]) === 2 ? 2000 : 0);
+        return self::build($year, $month, (int) $m[1]);
+      }
     }
 
     // Anything else ("5-sep-2026", "September 5, 2026") has no day/month

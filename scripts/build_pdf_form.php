@@ -101,7 +101,11 @@ $pdf->setFont('helvetica', '', 9);
 $pdf->setFormDefaultProp(['lineWidth' => 0, 'borderStyle' => 'solid', 'fillColor' => [], 'strokeColor' => []]);
 
 // Light red (#FBD5D5, as in the Excel) while a required field is empty.
+// "this" is the document only at the top level of a document script; inside
+// a function it may be the global object, so the document is kept in a
+// variable.
 $pdf->IncludeJS(implode("\n", [
+  'var aaDoc = this;',
   'var AA_OBLIGATORIOS = ' . json_encode($required) . ';',
   'function aaColor(campo, valor) {',
   '  var vacio = (valor === undefined || valor === null || String(valor).replace(/\s+/g, "") === "");',
@@ -109,12 +113,27 @@ $pdf->IncludeJS(implode("\n", [
   '}',
   'function aaMarcarTodos() {',
   '  for (var i = 0; i < AA_OBLIGATORIOS.length; i++) {',
-  '    var campo = this.getField(AA_OBLIGATORIOS[i]);',
+  '    var campo = aaDoc.getField(AA_OBLIGATORIOS[i]);',
   '    if (campo) { aaColor(campo, campo.value); }',
   '  }',
   '}',
   'aaMarcarTodos();',
 ]));
+
+// Help shown when hovering a field (Excel shows the same as input message).
+$tooltip = static function (string $key) use ($required, $dates, $amounts, $lists): string {
+  $parts = in_array($key, $required, TRUE) ? ['Obligatorio.'] : [];
+  if (in_array($key, $dates, TRUE)) {
+    $parts[] = 'Escribe la fecha, por ejemplo 24/09/2026.';
+  }
+  elseif (in_array($key, $amounts, TRUE)) {
+    $parts[] = 'Escribe solo la cantidad, por ejemplo 150000.00.';
+  }
+  elseif (isset($lists[$key])) {
+    $parts[] = 'Elige una opción de la lista.';
+  }
+  return implode(' ', $parts);
+};
 
 foreach ($boxes as $key => [$x0, $y0, $x1, $y1]) {
   $w = $x1 - $x0;
@@ -135,6 +154,11 @@ foreach ($boxes as $key => [$x0, $y0, $x1, $y1]) {
   }
   $aa = implode(' ', array_map(static fn(string $event, string $code): string => '/' . $event . ' ' . $js($code), array_keys($actions), $actions));
   $opt = $aa !== '' ? ['aa' => $aa] : [];
+  if (($help = $tooltip($key)) !== '') {
+    // TCPDF writes /TU bytes as they come; UTF-16BE with its byte order mark
+    // is how PDF text strings carry accents ("opción", not "opciÃ³n").
+    $opt['tu'] = "\xFE\xFF" . mb_convert_encoding($help, 'UTF-16BE', 'UTF-8');
+  }
 
   if (isset($lists[$key])) {
     // First option empty: nothing is chosen until the client picks one. An

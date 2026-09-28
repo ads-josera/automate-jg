@@ -56,6 +56,21 @@ foreach ($cases as $file => $changes) {
   $check(($row['aseguradora'] ?? '') === 'Seguros Atlas' && ($row['tipo_documento'] ?? '') === 'Constancia', 'Trae la aseguradora y el tipo de documento fijos del formato');
 }
 
+echo PHP_EOL . 'I_vista_previa_real.pdf (llenado y guardado por el usuario en la Vista Previa de Mac)' . PHP_EOL;
+$row = $parser->parse($dir . 'I_vista_previa_real.pdf')[0];
+$check(($row['beneficiario_nombre'] ?? '') === 'José Raúl Perea Herrera' && ($row['mercancia_referencia'] ?? '') === 'son de 27”', 'Acentos y comillas tipográficas intactos');
+$check(\Drupal\aseguramiento_automation\Util\DateNormalizer::toIso($row['fecha_inicio_seguro'] ?? '') === '2026-10-30' && \Drupal\aseguramiento_automation\Util\DateNormalizer::toIso($row['solicitud_fecha'] ?? '') === '2026-10-29', 'Fechas escritas "30-octubre-2026" y "29-octubre-26" se entienden');
+$check(\Drupal::service('aseguramiento_automation.validation')->validateRow($row)['valid'], 'La solicitud pasa la validación');
+
+echo PHP_EOL . 'El formato para repartir trae sus ayudas (Acrobat Reader)' . PHP_EOL;
+$form = (string) file_get_contents(DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_rellenable.pdf');
+// TCPDF writes the document script as a UTF-16BE text string.
+$utf16 = static fn(string $text): string => mb_convert_encoding($text, 'UTF-16BE', 'UTF-8');
+$check(str_contains($form, '/JavaScript') && str_contains($form, $utf16('aaMarcarTodos')) && str_contains($form, $utf16('var aaDoc = this;')), 'Script del fondo rojo en obligatorios vacíos (sin depender de "this" dentro de funciones)');
+$check(substr_count($form, 'AFDate_FormatEx') === 2, 'Formato de fecha dd/mm/yyyy en las 2 fechas');
+// 10 required + 1 optional date + 3 optional amounts + 2 optional lists.
+$check(substr_count($form, '/TU') === 16, 'Texto de ayuda en fechas, montos, listas y obligatorios (' . substr_count($form, '/TU') . ' de 16 campos)');
+
 echo PHP_EOL . 'G_xref_danada.pdf (la tabla de objetos apunta a un lugar equivocado)' . PHP_EOL;
 $row = $parser->parse($dir . 'G_xref_danada.pdf')[0];
 $check(($row['solicitante'] ?? '') === $expected['solicitante'] && ($row['solicitante_telefono'] ?? 'x') === '', 'Se lee igual recorriendo los objetos del archivo');

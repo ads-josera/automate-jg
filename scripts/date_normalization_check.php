@@ -38,6 +38,13 @@ $cases = [
   'Texto 05.09.2026' => ['05.09.2026', '2026-09-05'],
   'Texto 5-sep-2026' => ['5-sep-2026', '2026-09-05'],
   'Texto 31/02/2026 (no existe)' => ['31/02/2026', NULL],
+  'Texto 29-octubre-26' => ['29-octubre-26', '2026-10-29'],
+  'Texto 30-octubre-2026' => ['30-octubre-2026', '2026-10-30'],
+  'Texto 30 de octubre de 2026' => ['30 de octubre de 2026', '2026-10-30'],
+  'Texto 1-ene-2027' => ['1-ene-2027', '2027-01-01'],
+  'Texto 5 Septiembre 2026' => ['5 Septiembre 2026', '2026-09-05'],
+  'Texto 31-febrero-2026 (no existe)' => ['31-febrero-2026', NULL],
+  'Texto 30-octubrr-2026 (mes mal escrito)' => ['30-octubrr-2026', NULL],
 ];
 
 $storage = \Drupal::entityTypeManager()->getStorage('aseguramiento_constancia');
