@@ -126,6 +126,13 @@ Soporta host, puerto, cifrado, usuario, contraseña y carpeta. Usa la librería 
 - Las carpetas (`Processed`, `Errors`, spam) se buscan por nombre, también como `INBOX.<nombre>` (espacio de nombres de Dovecot en cPanel) y sin distinguir mayúsculas. Si la de destino no existe, el correo queda en la bandeja y se registra una advertencia; el registro evita que se procese otra vez.
 - Pruebas contra un servidor IMAP real (GreenMail): `scripts/imap_integration_check.php` y `scripts/mailbox_reading_check.php` (primera lectura, correo abierto en webmail, rescate de spam, sin duplicados, reintentos).
 
+## Suma asegurada total y montos permitidos
+
+- La **suma asegurada total** no se captura: es siempre valor factura + gastos de fletes + gastos incrementales + seguro del contenedor (`Util\SumaAsegurada`). El servidor la calcula y usa esa, sin importar lo que diga el formato; es la que se guarda y sale en la constancia.
+- Debe estar dentro del rango de su moneda, **límites incluidos**: se configura en *Configuración → Aseguramiento → Montos permitidos* (`amount_limits`, update 11010: USD 25–600,000, MXN 500–12,000,000) y lo lee `Service\AmountLimits`. Fuera de rango: sin constancia y el cliente recibe, p. ej., "Suma asegurada total: $700,000.00 USD supera el máximo de $600,000.00 USD". Ningún monto puede ser negativo.
+- **Formatos:** el Excel (`scripts/build_excel_form.php`) y el PDF (`scripts/build_pdf_form.php`) calculan la suma solos, la bloquean y la marcan en rojo fuera de rango con los mismos límites de la configuración. **Si cambias los límites, vuelve a correr los dos generadores** y `template_integrity_check.php` (avisa si el Excel quedó con límites viejos).
+- **Pruebas:** `scripts/amount_limits_check.php` (reglas y fronteras exactas), escenario G de `batch_reply_check.php`, y `node scripts/pdf_form_js_check.mjs` (ejecuta los scripts del PDF en un modelo de Acrobat).
+
 ## Formato de solicitud en PDF rellenable
 
 Además del Excel, el cliente puede enviar el formato en PDF (`docs/solicitud_aseguramiento_rellenable.pdf`). Sus campos se llaman igual que las claves de la hoja oculta "Datos" del Excel (`solicitante`, `beneficiario_nombre`, …), así que se valida exactamente igual; lleva además dos campos fijos ocultos (`aseguradora`, `tipo_documento`) que eligen la plantilla de la constancia.

@@ -24,6 +24,18 @@ aseguramiento_automation.settings:
       label: 'Required subject keywords'
       sequence:
         type: string
+    amount_limits:
+      type: mapping
+      label: 'Allowed insured total per currency (inclusive)'
+      mapping:
+        usd_min:
+          type: float
+        usd_max:
+          type: float
+        mxn_min:
+          type: float
+        mxn_max:
+          type: float
     default_provider:
       type: string
       label: 'Default mail provider'

@@ -4,6 +4,11 @@ queue_batch_size: 50
 debug_mode: false
 allowed_sender_domains: []
 required_subject_keywords: []
+amount_limits:
+  usd_min: 25
+  usd_max: 600000
+  mxn_min: 500
+  mxn_max: 12000000
 default_provider: microsoft_graph
 default_processed_folder: Processed
 default_error_folder: Errors

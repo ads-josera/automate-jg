@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Service;
 
 use Drupal\aseguramiento_automation\Util\DateNormalizer;
+use Drupal\aseguramiento_automation\Util\SumaAsegurada;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 
 /**
@@ -14,7 +15,8 @@ final class ValidationService {
 
   /**
    * Required request fields; the forms mark the same ones (red in the Excel,
-   * asterisk and red background in the PDF).
+   * asterisk and red background in the PDF). "Suma asegurada total" is not
+   * among them: it is computed (see SumaAsegurada).
    */
   public const REQUIRED = [
     'solicitante',
@@ -26,10 +28,12 @@ final class ValidationService {
     'medio_transporte',
     'moneda',
     'valor_factura',
-    'suma_asegurada_total',
   ];
 
-  public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {
+  public function __construct(
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly AmountLimits $amountLimits,
+  ) {
   }
 
   /**
@@ -61,9 +65,29 @@ final class ValidationService {
     if (($row['suma_asegurada'] ?? '') !== '' && !is_numeric(str_replace([',', '$'], '', (string) $row['suma_asegurada']))) {
       $errors['suma_asegurada'][] = 'El monto debe ser numérico.';
     }
-    foreach (['valor_factura', 'gastos_fletes', 'gastos_incrementales', 'seguro_contenedor', 'suma_asegurada_total'] as $amount_field) {
-      if (($row[$amount_field] ?? '') !== '' && !is_numeric(str_replace([',', '$', ' '], '', (string) $row[$amount_field]))) {
+    foreach (SumaAsegurada::COMPONENTS as $amount_field) {
+      if (trim((string) ($row[$amount_field] ?? '')) === '') {
+        continue;
+      }
+      $amount = SumaAsegurada::amount($row[$amount_field]);
+      if ($amount === NULL) {
         $errors[$amount_field][] = 'El monto debe ser numérico.';
+      }
+      elseif ($amount < 0) {
+        $errors[$amount_field][] = 'El monto no puede ser negativo.';
+      }
+    }
+    // The insured total (always computed) must be within the limits of its
+    // currency; limits themselves are accepted.
+    $total = SumaAsegurada::total($row);
+    $code = SumaAsegurada::currencyCode((string) ($row['moneda'] ?? ''));
+    $limits = $code !== '' ? $this->amountLimits->forCurrency($code) : NULL;
+    if ($total !== NULL && $limits !== NULL && !isset($errors['moneda'])) {
+      if ($total < $limits['min']) {
+        $errors['suma_asegurada_total'][] = sprintf('%s es menor que el mínimo de %s.', SumaAsegurada::money($total, $code), SumaAsegurada::money($limits['min'], $code));
+      }
+      elseif ($total > $limits['max']) {
+        $errors['suma_asegurada_total'][] = sprintf('%s supera el máximo de %s.', SumaAsegurada::money($total, $code), SumaAsegurada::money($limits['max'], $code));
       }
     }
     foreach (['vigencia_inicio', 'vigencia_fin', 'solicitud_fecha', 'fecha_inicio_seguro'] as $date_field) {

@@ -173,6 +173,18 @@ function aseguramiento_automation_update_11009(): string {
 }
 
 /**
+ * Allowed insured total per currency (editable in the settings).
+ */
+function aseguramiento_automation_update_11010(): string {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  if (is_array($config->get('amount_limits'))) {
+    return 'Los montos permitidos ya estaban configurados; no se cambiaron.';
+  }
+  $config->set('amount_limits', ['usd_min' => 25.0, 'usd_max' => 600000.0, 'mxn_min' => 500.0, 'mxn_max' => 12000000.0])->save();
+  return 'Montos permitidos de la suma asegurada total: USD 25 a 600,000 y MXN 500 a 12,000,000.';
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {

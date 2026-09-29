@@ -73,7 +73,7 @@ $excel = static function (string $name) use ($template): string {
   foreach ([
     'C8' => $name, 'C12' => 'Beneficiario', 'D18' => 'Mercancía', 'D23' => 46290,
     'I23' => 'Terrestre', 'D24' => 'Origen', 'D25' => 'Destino', 'D29' => 'PESOS',
-    'D30' => 1000, 'D32' => 1000, 'D54' => 'SI',
+    'D30' => 1000, 'D54' => 'SI',
   ] as $ref => $value) {
     $sheet->setCellValue($ref, $value);
   }

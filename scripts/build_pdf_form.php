@@ -24,6 +24,7 @@
 declare(strict_types=1);
 
 use Drupal\aseguramiento_automation\Service\ValidationService;
+use Drupal\aseguramiento_automation\Util\SumaAsegurada;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
 $source = DRUPAL_ROOT . '/../docs/Solicitud_aseguramiento.pdf';
@@ -37,9 +38,18 @@ $lists = [
   'acepta_informacion_veridica' => ['SI', 'NO'],
 ];
 $dates = ['solicitud_fecha', 'fecha_inicio_seguro'];
-$amounts = ['valor_factura', 'gastos_fletes', 'gastos_incrementales', 'seguro_contenedor', 'suma_asegurada_total'];
+$amounts = [...SumaAsegurada::COMPONENTS, 'suma_asegurada_total'];
 // The same required fields the server validates.
 $required = ValidationService::REQUIRED;
+// Allowed insured total, keyed by the currency options of the form.
+$limits = \Drupal::service('aseguramiento_automation.amount_limits');
+$ranges = array_filter(['USD' => $limits->forCurrency('USD'), 'PESOS' => $limits->forCurrency('MXN')]);
+if (count($ranges) !== 2) {
+  throw new \RuntimeException('Configura los montos permitidos (USD y MXN) antes de generar el formato.');
+}
+$human = static fn(float $value): string => number_format($value, floor($value) == $value ? 0 : 2);
+$range_text = sprintf('USD %s a %s; MXN %s a %s', $human($ranges['USD']['min']), $human($ranges['USD']['max']), $human($ranges['PESOS']['min']), $human($ranges['PESOS']['max']));
+$total_help = 'Se calcula sola: valor factura + fletes + incrementales + seguro. Rango permitido: ' . $range_text . '.';
 
 // key => [x0, y0, x1, y1] of the box, measured on the design.
 $boxes = [
@@ -117,14 +127,47 @@ $pdf->IncludeJS(implode("\n", [
   '    if (campo) { aaColor(campo, campo.value); }',
   '  }',
   '}',
+  // Insured total: computed, and red when outside the range of its currency
+  // (the server applies the same rule). While a field is validated Acrobat
+  // still holds its previous value, so the changed field passes its new one.
+  'var AA_MONTOS = ' . json_encode(SumaAsegurada::COMPONENTS) . ';',
+  'var AA_LIMITES = ' . json_encode($ranges) . ';',
+  'var AA_AYUDA_SUMA = ' . json_encode($total_help, JSON_UNESCAPED_UNICODE) . ';',
+  'function aaNumero(valor) {',
+  '  var texto = String(valor === undefined || valor === null ? "" : valor).replace(/[$,\s]/g, "");',
+  '  return (texto === "" || isNaN(texto)) ? null : Number(texto);',
+  '}',
+  'function aaMiles(n) {',
+  '  return String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");',
+  '}',
+  'function aaSumar(cambiado, nuevo, moneda) {',
+  '  var total = null;',
+  '  for (var i = 0; i < AA_MONTOS.length; i++) {',
+  '    var campo = aaDoc.getField(AA_MONTOS[i]);',
+  '    var n = aaNumero(AA_MONTOS[i] === cambiado ? nuevo : (campo ? campo.value : ""));',
+  '    if (n !== null) { total = (total === null ? 0 : total) + n; }',
+  '  }',
+  '  var suma = aaDoc.getField("suma_asegurada_total");',
+  '  if (!suma) { return; }',
+  '  suma.value = total === null ? "" : total.toFixed(2);',
+  '  var clave = String(moneda === undefined ? aaDoc.getField("moneda").value : moneda);',
+  '  var limite = AA_LIMITES[clave];',
+  '  var fuera = total !== null && limite !== undefined && (total < limite.min || total > limite.max);',
+  '  suma.fillColor = fuera ? ["RGB", 0.984, 0.835, 0.835] : color.transparent;',
+  '  suma.userName = fuera ? "Fuera de rango: " + (clave === "PESOS" ? "MXN" : clave) + " " + aaMiles(limite.min) + " a " + aaMiles(limite.max) + "." : AA_AYUDA_SUMA;',
+  '}',
   'aaMarcarTodos();',
+  'aaSumar(null, null);',
 ]));
 
 // Help shown when hovering a field (Excel shows the same as input message).
-$tooltip = static function (string $key) use ($required, $dates, $amounts, $lists): string {
+$tooltip = static function (string $key) use ($required, $dates, $amounts, $lists, $total_help): string {
   $parts = in_array($key, $required, TRUE) ? ['Obligatorio.'] : [];
   if (in_array($key, $dates, TRUE)) {
     $parts[] = 'Escribe la fecha, por ejemplo 24/09/2026.';
+  }
+  elseif ($key === 'suma_asegurada_total') {
+    $parts[] = $total_help;
   }
   elseif (in_array($key, $amounts, TRUE)) {
     $parts[] = 'Escribe solo la cantidad, por ejemplo 150000.00.';
@@ -141,8 +184,22 @@ foreach ($boxes as $key => [$x0, $y0, $x1, $y1]) {
   $is_required = in_array($key, $required, TRUE);
   $prop = ['required' => $is_required];
   $actions = [];
+  $validate = [];
   if ($is_required) {
-    $actions['V'] = 'aaColor(event.target, event.value);';
+    $validate[] = 'aaColor(event.target, event.value);';
+  }
+  if (in_array($key, SumaAsegurada::COMPONENTS, TRUE)) {
+    $validate[] = 'aaSumar(event.target.name, event.value);';
+  }
+  if ($key === 'moneda') {
+    $validate[] = 'aaSumar(null, null, event.value);';
+  }
+  if ($key === 'suma_asegurada_total') {
+    // Computed by the form (and by the server): the client cannot type it.
+    $prop['readonly'] = TRUE;
+  }
+  if ($validate !== []) {
+    $actions['V'] = implode(' ', $validate);
   }
   if (in_array($key, $dates, TRUE)) {
     $actions['F'] = 'AFDate_FormatEx("dd/mm/yyyy");';

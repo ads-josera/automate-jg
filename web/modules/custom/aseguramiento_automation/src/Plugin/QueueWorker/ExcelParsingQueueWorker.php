@@ -12,6 +12,7 @@ use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
 use Drupal\aseguramiento_automation\Service\ValidationService;
 use Drupal\aseguramiento_automation\Util\DateNormalizer;
+use Drupal\aseguramiento_automation\Util\SumaAsegurada;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -94,6 +95,10 @@ final class ExcelParsingQueueWorker extends QueueWorkerBase implements Container
       foreach ($rows as $row) {
         $account = (array) ($data['account'] ?? []);
         $message = (array) ($data['message'] ?? []);
+        // Never the typed total: always the sum of its parts (stored,
+        // validated and printed on the constancia).
+        $total = SumaAsegurada::total($row);
+        $row['suma_asegurada_total'] = $total === NULL ? '' : number_format($total, 2, '.', '');
         $validation = $this->validationService->validateRow($row);
         $values = [
           'folio' => $this->folio($row),

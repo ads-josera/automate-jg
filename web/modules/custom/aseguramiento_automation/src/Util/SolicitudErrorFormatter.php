@@ -25,6 +25,7 @@ final class SolicitudErrorFormatter {
     'El RFC no es válido.' => 'el RFC no es válido',
     'La póliza ya existe.' => 'esa póliza ya fue registrada',
     'La moneda no es válida.' => 'elige USD o PESOS',
+    'El monto no puede ser negativo.' => 'no puede ser negativo',
   ];
 
   private const EXTRA_LABELS = [
@@ -58,7 +59,7 @@ final class SolicitudErrorFormatter {
     if (is_array($decoded)) {
       foreach ($decoded as $field => $messages) {
         foreach ((array) $messages as $message) {
-          $result['fields'][] = self::label((string) $field) . ': ' . (self::MESSAGES[$message] ?? mb_strtolower((string) $message));
+          $result['fields'][] = self::label((string) $field) . ': ' . (self::MESSAGES[$message] ?? self::lowerFirst((string) $message));
         }
       }
     }
@@ -71,6 +72,13 @@ final class SolicitudErrorFormatter {
       }
     }
     return $result;
+  }
+
+  /**
+   * Lower-cases only the first letter: messages with amounts keep "USD".
+   */
+  private static function lowerFirst(string $message): string {
+    return mb_strtolower(mb_substr($message, 0, 1)) . mb_substr($message, 1);
   }
 
   /**

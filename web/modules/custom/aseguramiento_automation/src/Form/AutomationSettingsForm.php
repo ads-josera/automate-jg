@@ -74,6 +74,26 @@ final class AutomationSettingsForm extends ConfigFormBase {
       '#default_value' => implode("\n", (array) $config->get('required_subject_keywords')),
     ];
 
+    $form['amount_limits'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Montos permitidos'),
+      '#open' => TRUE,
+      '#description' => $this->t('Rango permitido de la <strong>suma asegurada total</strong> (valor factura + gastos de fletes + gastos incrementales + seguro del contenedor), según la moneda. Los límites se aceptan. Una solicitud fuera de rango no genera constancia: el cliente recibe qué corregir. Si los cambias, hay que volver a generar el formato Excel y el PDF que se reparten, que también los muestran.'),
+    ];
+    foreach (['usd' => 'USD', 'mxn' => 'MXN (pesos)'] as $currency => $label) {
+      foreach (['min' => 'mínimo', 'max' => 'máximo'] as $bound => $bound_label) {
+        $form['amount_limits']["amount_limits_{$currency}_{$bound}"] = [
+          '#type' => 'number',
+          '#title' => $this->t('@currency: @bound', ['@currency' => $label, '@bound' => $bound_label]),
+          '#min' => 0,
+          '#step' => '0.01',
+          '#required' => TRUE,
+          '#field_prefix' => '$',
+          '#default_value' => $config->get("amount_limits.{$currency}_{$bound}"),
+        ];
+      }
+    }
+
     $form['storage'] = [
       '#type' => 'details',
       '#title' => $this->t('Almacenamiento y seguridad'),
@@ -206,6 +226,11 @@ final class AutomationSettingsForm extends ConfigFormBase {
     if (count($emails) > 3) {
       $form_state->setErrorByName('notification_email_3', $this->t('Solo puedes configurar hasta 3 correos de notificación.'));
     }
+    foreach (['usd' => 'USD', 'mxn' => 'MXN'] as $currency => $label) {
+      if ((float) $form_state->getValue("amount_limits_{$currency}_min") >= (float) $form_state->getValue("amount_limits_{$currency}_max")) {
+        $form_state->setErrorByName("amount_limits_{$currency}_max", $this->t('@currency: el máximo debe ser mayor que el mínimo.', ['@currency' => $label]));
+      }
+    }
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
@@ -226,6 +251,11 @@ final class AutomationSettingsForm extends ConfigFormBase {
       ->set('copy_notifications_on_customer_reply', (bool) $form_state->getValue('copy_notifications_on_customer_reply'));
     foreach (array_keys(EmailTemplateDefaults::settings()) as $key) {
       $config->set($key, (string) $form_state->getValue($key));
+    }
+    foreach (['usd', 'mxn'] as $currency) {
+      foreach (['min', 'max'] as $bound) {
+        $config->set("amount_limits.{$currency}_{$bound}", (float) $form_state->getValue("amount_limits_{$currency}_{$bound}"));
+      }
     }
 
     if (($key = trim((string) $form_state->getValue('token_encryption_key'))) !== '') {

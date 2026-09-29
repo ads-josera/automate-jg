@@ -51,6 +51,12 @@ services:
     class: Drupal\aseguramiento_automation\Service\ValidationService
     arguments:
       - '@entity_type.manager'
+      - '@aseguramiento_automation.amount_limits'
+
+  aseguramiento_automation.amount_limits:
+    class: Drupal\aseguramiento_automation\Service\AmountLimits
+    arguments:
+      - '@config.factory'
 
   aseguramiento_automation.pdf_template:
     class: Drupal\aseguramiento_automation\Service\PdfTemplateService

@@ -26,7 +26,7 @@ $template = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato_jr_preparado
 $base = [
   'C8' => 'Cliente prueba fechas', 'C12' => 'Beneficiario', 'D18' => 'Mercancia',
   'D24' => 'Origen', 'D25' => 'Destino', 'I23' => 'Terrestre',
-  'D29' => 'PESOS', 'D30' => 1000, 'D32' => 1000, 'D54' => 'SI',
+  'D29' => 'PESOS', 'D30' => 1000, 'D54' => 'SI',
 ];
 // Typed value in "Fecha inicio seguro" (D23) => expected stored date.
 $cases = [

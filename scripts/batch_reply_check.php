@@ -48,7 +48,7 @@ $excel = static function (string $name, array $overrides) use ($template): strin
   $values = $overrides + [
     'C8' => $name, 'C12' => 'Beneficiario', 'D18' => 'Mercancía', 'D23' => 46290,
     'I23' => 'Terrestre', 'D24' => 'Origen', 'D25' => 'Destino', 'D29' => 'PESOS',
-    'D30' => 1000, 'D32' => 1000, 'D54' => 'SI',
+    'D30' => 1000, 'D54' => 'SI',
   ];
   foreach ($values as $ref => $value) {
     $sheet->setCellValue($ref, $value);
@@ -193,6 +193,18 @@ $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe 1 correo (recibió ' . count($mails) . ')');
 $check(($mails[0]['attachments'] ?? 0) === 1, 'Con el PDF del archivo válido');
 $check(str_contains($mails[0]['html'] ?? '', 'No pudimos leer el archivo'), 'Avisa que el archivo dañado no se pudo leer');
+
+echo PHP_EOL . 'Escenario G: suma asegurada fuera de rango' . PHP_EOL;
+$mailpit('DELETE');
+$send([
+  'solicitud_fuera_rango.xlsx' => $excel('Cliente G1', ['D29' => 'USD', 'D30' => 500000, 'I30' => 150000, 'D31' => 30000, 'I31' => 20000]),
+  'solicitud_en_el_limite.xlsx' => $excel('Cliente G2', ['D29' => 'USD', 'D30' => 300000, 'I30' => 200000, 'I31' => 100000]),
+]);
+$run();
+$mails = $toClient();
+$check(count($mails) === 1, 'El cliente recibe UN solo correo (recibió ' . count($mails) . ')');
+$check(($mails[0]['attachments'] ?? 0) === 1, 'Constancia solo para la del límite exacto de 600,000 USD (adjuntos: ' . ($mails[0]['attachments'] ?? 0) . ')');
+$check(str_contains($mails[0]['html'] ?? '', 'Suma asegurada total: $700,000.00 USD supera el máximo de $600,000.00 USD'), 'Explica que 500,000 + 150,000 + 30,000 + 20,000 = $700,000.00 USD supera el máximo');
 
 echo PHP_EOL . 'Escenario F: formato PDF rellenable (uno bien, uno incompleto, uno protegido)' . PHP_EOL;
 $mailpit('DELETE');
