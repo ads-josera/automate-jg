@@ -25,6 +25,15 @@ final class SolicitudBatchService {
 
   private const COLLECTION = 'aseguramiento_automation.lote';
 
+  /**
+   * Message-ID (of the client's email or of our reply) => batch id.
+   *
+   * When a client answers our reply with the corrected file, the answer's
+   * In-Reply-To/References name one of these ids: that is how the new batch
+   * knows which request it corrects.
+   */
+  private const THREADS = 'aseguramiento_automation.hilo';
+
   private const TTL = 30 * 86400;
 
   public function __construct(
@@ -56,6 +65,8 @@ final class SolicitudBatchService {
       'message_id' => (string) ($message['id'] ?? ''),
       // RFC 5322 Message-ID, so the reply is threaded as an answer.
       'reply_to_id' => (string) ($message['headers']['message_id'] ?? ''),
+      // Earlier batch this email answers (a corrected file), if any.
+      'corrige_lote' => $this->loteForThread($message),
       'files' => [],
       'reply_queued' => FALSE,
       'replied' => FALSE,
@@ -74,7 +85,47 @@ final class SolicitudBatchService {
       ];
     }
     $this->store()->setWithExpire($id, $batch, self::TTL);
+    $this->rememberThread((string) ($message['headers']['message_id'] ?? ''), $id);
     return $id;
+  }
+
+  /**
+   * Records that an email (ours or the client's) belongs to a batch.
+   */
+  public function rememberThread(string $message_id, string $lote): void {
+    $key = self::threadKey($message_id);
+    if ($key !== '') {
+      $this->keyValueFactory->get(self::THREADS)->setWithExpire($key, $lote, self::TTL);
+    }
+  }
+
+  /**
+   * The earlier batch an inbound email answers, or '' when it answers none.
+   *
+   * In-Reply-To (the email directly answered) wins; then References from the
+   * newest to the oldest.
+   */
+  public function loteForThread(array $message): string {
+    $headers = (array) ($message['headers'] ?? []);
+    $ids = array_merge((array) ($headers['in_reply_to'] ?? []), array_reverse((array) ($headers['references'] ?? [])));
+    $threads = $this->keyValueFactory->get(self::THREADS);
+    foreach ($ids as $id) {
+      $key = self::threadKey((string) $id);
+      $lote = $key !== '' ? $threads->get($key) : NULL;
+      if (is_string($lote) && $lote !== '') {
+        return $lote;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Message-IDs compare without brackets and case-insensitively; hashed so
+   * any length fits the key-value name column.
+   */
+  private static function threadKey(string $message_id): string {
+    $id = strtolower(trim($message_id, " \t\r\n<>"));
+    return $id !== '' ? hash('sha256', $id) : '';
   }
 
   /**

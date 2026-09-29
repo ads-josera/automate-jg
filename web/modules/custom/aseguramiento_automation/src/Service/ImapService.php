@@ -261,9 +261,25 @@ final class ImapService {
       'subject' => (string) $message->subject(),
       'from' => $from ? $from->email() : '',
       'received' => $message->date()?->toIso8601String() ?? '',
-      'headers' => ['message_id' => (string) $message->messageId()],
+      'headers' => [
+        'message_id' => (string) $message->messageId(),
+        // What this email answers: lets a corrected file be tied to the
+        // request it corrects (SolicitudBatchService::loteForThread()).
+        'in_reply_to' => $message->inReplyTo(),
+        'references' => $this->references($message),
+      ],
       'raw' => ['uid' => $message->uid(), 'folder' => $folder->path()],
     ];
+  }
+
+  /**
+   * Message-IDs of the References header, oldest first.
+   *
+   * @return string[]
+   */
+  private function references(MessageInterface $message): array {
+    $parts = $message->header('References')?->getParts() ?? [];
+    return array_values(array_filter(array_map(static fn($part): string => (string) $part->getValue(), $parts)));
   }
 
   /**

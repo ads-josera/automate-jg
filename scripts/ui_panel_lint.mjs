@@ -12,13 +12,20 @@
  *   node <browser-automation>/browser.mjs "$ULI" --script scripts/ui_panel_lint.mjs
  *
  * Optional: DETALLE_ID / CONFIRMAR_ID env vars pick the constancias used for
- * the detail and reprocess confirmation pages (the latter must be in error).
+ * the detail and reprocess confirmation pages (the latter must be in error);
+ * RESOLVER_ID (in error) the "Marcar como resuelta" confirmation, and
+ * CORREGIDA_ID the detail of a constancia already corrected.
  */
 export default async function run(page) {
   const base = new URL(page.url()).origin;
   const pages = { lista: '/admin/aseguramiento/constancias', panel: '/admin/aseguramiento', exportar: '/admin/aseguramiento/export' };
   if (process.env.DETALLE_ID) pages.detalle = '/admin/aseguramiento/constancia/' + process.env.DETALLE_ID;
   if (process.env.CONFIRMAR_ID) pages.confirmacion = '/admin/aseguramiento/constancia/' + process.env.CONFIRMAR_ID + '/reprocess';
+  if (process.env.RESOLVER_ID) {
+    pages.detalle_con_error = '/admin/aseguramiento/constancia/' + process.env.RESOLVER_ID;
+    pages.resolver = '/admin/aseguramiento/constancia/' + process.env.RESOLVER_ID + '/resolve';
+  }
+  if (process.env.CORREGIDA_ID) pages.corregida = '/admin/aseguramiento/constancia/' + process.env.CORREGIDA_ID;
   const report = {};
   for (const width of [1440, 1280, 1024, 820, 390]) {
     await page.setViewportSize({ width, height: 900 });

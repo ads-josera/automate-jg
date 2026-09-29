@@ -24,7 +24,7 @@ final class MailService {
   ) {
   }
 
-  public function sendConstancia(array $data, string $pdf_uri, array $settings, string $in_reply_to = ''): bool {
+  public function sendConstancia(array $data, string $pdf_uri, array $settings, string $in_reply_to = '', string $message_id = ''): bool {
     $start = microtime(TRUE);
     $data = $this->withSystemVariables($data);
     $to = (string) ($data['email'] ?? '');
@@ -48,6 +48,7 @@ final class MailService {
       'body' => $rendered['body'],
       'is_html' => !empty($settings['email_reply_is_html']),
       'in_reply_to' => $in_reply_to,
+      'message_id' => $message_id,
       'bcc' => !empty($settings['copy_notifications_on_customer_reply']) ? $this->notificationEmails($settings) : [],
       'attachments' => [[
         'filepath' => $pdf_path,
@@ -214,7 +215,7 @@ final class MailService {
    *   Items without PDF: each with "file", "folio", "nombre", "fields"
    *   (sentences the client must fix) and "internal" (problems on our side).
    */
-  public function sendBatchReply(string $to, array $ok, array $failed, array $settings, string $in_reply_to = ''): bool {
+  public function sendBatchReply(string $to, array $ok, array $failed, array $settings, string $in_reply_to = '', string $message_id = ''): bool {
     $attachments = [];
     foreach ($ok as $item) {
       $path = $this->fileSystem->realpath((string) $item['pdf_uri']);
@@ -231,6 +232,7 @@ final class MailService {
       'body' => $rendered['body'],
       'is_html' => TRUE,
       'in_reply_to' => $in_reply_to,
+      'message_id' => $message_id,
       'bcc' => $bcc,
       'attachments' => $attachments,
     ]);
@@ -428,6 +430,10 @@ final class MailService {
     if ($helo !== '') {
       $mailer->Helo = $helo;
     }
+    $own_id = self::messageIdHeader((string) ($params['message_id'] ?? ''));
+    if ($own_id !== '') {
+      $mailer->MessageID = $own_id;
+    }
     $reply_to_id = self::messageIdHeader((string) ($params['in_reply_to'] ?? ''));
     if ($reply_to_id !== '') {
       // Sent as an answer to the client's email: it threads with it, and
@@ -494,6 +500,20 @@ final class MailService {
     $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $lines = array_map(static fn(string $line): string => trim(preg_replace('/[ \t\x{00A0}]+/u', ' ', $line) ?? $line), explode("\n", $text));
     return trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)) ?? '');
+  }
+
+  /**
+   * A new Message-ID for an email we are about to send.
+   *
+   * Chosen before sending so the batch can remember it: the client's answer
+   * to that email names it in In-Reply-To. The domain is the sender's, like
+   * the one PHPMailer would generate.
+   */
+  public function newMessageId(): string {
+    $smtp = $this->configFactory->get('smtp.settings');
+    $from = (string) ($smtp->get('smtp_from') ?: $this->configFactory->get('system.site')->get('mail'));
+    $domain = (string) $smtp->get('smtp_client_hostname') ?: substr((string) strrchr($from, '@'), 1);
+    return '<' . bin2hex(random_bytes(16)) . '@' . ($domain !== '' ? $domain : 'localhost') . '>';
   }
 
   /**

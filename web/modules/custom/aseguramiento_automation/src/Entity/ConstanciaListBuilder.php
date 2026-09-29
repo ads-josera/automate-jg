@@ -21,15 +21,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 final class ConstanciaListBuilder extends EntityListBuilder {
 
-  private const STATUS_LABELS = [
-    'pending' => 'Pendiente',
-    'queued' => 'En cola',
-    'validating' => 'Validando',
-    'validated' => 'Validado',
-    'pdf_generated' => 'PDF generado',
-    'sent' => 'Enviado',
-    'error' => 'Error',
-  ];
+  private const STATUS_LABELS = ConstanciaEntity::STATUS_LABELS;
 
   private const LIMIT_OPTIONS = [
     20 => '20',

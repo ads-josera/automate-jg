@@ -62,6 +62,24 @@ final class ConstanciaEntity extends ContentEntityBase implements ConstanciaEnti
   use EntityOwnerTrait;
 
   /**
+   * Statuses and their labels: the only list (field values, list, detail).
+   *
+   * "corrected": it was in error and is settled, either replaced by the
+   * constancia the client sent corrected ("corregida_por") or marked as
+   * resolved by hand. It no longer counts as a pending error.
+   */
+  public const STATUS_LABELS = [
+    'pending' => 'Pendiente',
+    'queued' => 'En cola',
+    'validating' => 'Validando',
+    'validated' => 'Validado',
+    'pdf_generated' => 'PDF generado',
+    'sent' => 'Enviado',
+    'error' => 'Error',
+    'corrected' => 'Corregida',
+  ];
+
+  /**
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage): void {
@@ -231,17 +249,7 @@ final class ConstanciaEntity extends ContentEntityBase implements ConstanciaEnti
     $fields['status'] = BaseFieldDefinition::create('list_string')
       ->setLabel(t('Estado'))
       ->setDefaultValue('pending')
-      ->setSettings([
-        'allowed_values' => [
-          'pending' => 'Pendiente',
-          'queued' => 'En cola',
-          'validating' => 'Validando',
-          'validated' => 'Validado',
-          'pdf_generated' => 'PDF generado',
-          'sent' => 'Enviado',
-          'error' => 'Error',
-        ],
-      ])
+      ->setSettings(['allowed_values' => self::STATUS_LABELS])
       ->setDisplayOptions('form', ['type' => 'options_select', 'weight' => 0])
       ->setDisplayConfigurable('form', TRUE)
       ->setDisplayConfigurable('view', TRUE);
@@ -261,6 +269,17 @@ final class ConstanciaEntity extends ContentEntityBase implements ConstanciaEnti
         ->setDisplayConfigurable('form', TRUE)
         ->setDisplayConfigurable('view', TRUE);
     }
+
+    // A constancia in error and the one that fixed it (the client answered
+    // the correction email with the form corrected).
+    $fields['corregida_por'] = BaseFieldDefinition::create('entity_reference')
+      ->setLabel(t('Corregida con'))
+      ->setSetting('target_type', 'aseguramiento_constancia')
+      ->setDisplayConfigurable('view', TRUE);
+    $fields['corrige_a'] = BaseFieldDefinition::create('entity_reference')
+      ->setLabel(t('Corrige a'))
+      ->setSetting('target_type', 'aseguramiento_constancia')
+      ->setDisplayConfigurable('view', TRUE);
 
     $fields['metadata'] = BaseFieldDefinition::create('map')
       ->setLabel(t('Metadatos'));

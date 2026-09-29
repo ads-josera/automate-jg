@@ -64,6 +64,7 @@ Cada correo recibido forma un **lote** (`SolicitudBatchService`, almacén key-va
 - Archivo ilegible o sin datos: se informa en la misma respuesta en lugar de perderse.
 - Problemas internos (sin plantilla, fallo al generar el PDF): se avisa que no hay nada que corregir y que el equipo dará seguimiento.
 - La respuesta espera a que todo el lote termine (reintento diferido de la cola); tras 30 minutos responde con lo que haya. Nunca responde dos veces el mismo lote. Si el envío falla, reintenta hasta 5 veces.
+- **Corrección del cliente → constancia "Corregida"** (update 11013). Cada respuesta sale con un Message-ID elegido por nosotros, y el índice de hilos (`aseguramiento_automation.hilo`, 30 días) recuerda a qué lote pertenecen ese Message-ID y el del correo del cliente. Cuando el cliente **responde** a ese correo con el archivo corregido, sus encabezados In-Reply-To/References identifican el lote anterior (`corrige_lote`). Al responder, `ConstanciaCorrectionService::link()` empareja cada constancia nueva con una anterior en error. El orden es: mismo nombre de archivo; si no, mismo beneficiario; si no, cuando solo queda una de cada lado. La anterior pasa a `corrected` con `corregida_por`, y la nueva queda con `corrige_a`. El resumen al encargado dice "Constancia AA-nueva (corrige AA-anterior)". Lo que no se puede emparejar con seguridad **no se adivina**: sigue en error y el equipo lo cierra desde el detalle con **Marcar como resuelta**. Ese botón requiere el permiso de reprocesar, solo aparece en constancias con error, pide una nota opcional, no envía nada al cliente y deja quién, cuándo y la nota en la bitácora. Si el cliente manda el corregido en un correo nuevo (no como respuesta), tampoco se enlaza.
 - Prueba de punta a punta: `scripts/batch_reply_check.php` (GreenMail + Mailpit).
 
 Servicios principales:
@@ -82,6 +83,7 @@ Servicios principales:
 - `AuditService`
 - `QueueManagerService`
 - `SolicitudBatchService`
+- `ConstanciaCorrectionService`
 
 ## Providers de correo
 
@@ -251,7 +253,8 @@ Además, el módulo usa el canal logger `aseguramiento_automation`.
 - aseguradora
 - tipo_documento
 - company_id
-- status
+- status (`STATUS_LABELS`: pendiente, en cola, validando, validado, PDF generado, enviado, error, corregida)
+- corregida_por / corrige_a (enlace entre la constancia con error y la que la corrige)
 - plantilla_usada
 - pdf_generado
 - correo_origen

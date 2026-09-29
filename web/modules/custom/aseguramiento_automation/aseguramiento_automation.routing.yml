@@ -136,3 +136,15 @@ aseguramiento_automation.reprocess:
     parameters:
       aseguramiento_constancia:
         type: entity:aseguramiento_constancia
+
+aseguramiento_automation.resolve:
+  path: '/admin/aseguramiento/constancia/{aseguramiento_constancia}/resolve'
+  defaults:
+    _form: '\Drupal\aseguramiento_automation\Form\ResolveConstanciaForm'
+    _title: 'Marcar como resuelta'
+  requirements:
+    _custom_access: '\Drupal\aseguramiento_automation\Form\ResolveConstanciaForm::access'
+  options:
+    parameters:
+      aseguramiento_constancia:
+        type: entity:aseguramiento_constancia

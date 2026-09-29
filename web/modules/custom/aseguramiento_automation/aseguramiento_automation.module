@@ -58,6 +58,10 @@ function aseguramiento_automation_mail(string $key, &$message, array $params): v
     $message['headers']['In-Reply-To'] = $reply_to_id;
     $message['headers']['References'] = $reply_to_id;
   }
+  $own_id = MailService::messageIdHeader((string) ($params['message_id'] ?? ''));
+  if ($own_id !== '') {
+    $message['headers']['Message-ID'] = $own_id;
+  }
   if (!empty($params['attachments'])) {
     $message['params']['attachments'] = $params['attachments'];
   }

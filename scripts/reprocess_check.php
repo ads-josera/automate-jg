@@ -10,6 +10,8 @@
  * - Opening the URL (GET) only shows the confirmation; nothing is sent.
  * - Reprocessing emails the constancia even when it came in a batch whose
  *   reply already went out.
+ * - "Marcar como resuelta": only on errors, GET changes nothing, and it
+ *   leaves the constancia "Corregida" with who, when and the note.
  *
  * Works on copies of an existing sent constancia and deletes them at the
  * end. Usage (local DDEV only; the reply is checked in Mailpit):
@@ -91,6 +93,37 @@ try {
   $check($response->getStatusCode() === 200 && str_contains((string) $response->getContent(), 'Reprocesar y enviar'), 'GET muestra la confirmación (HTTP ' . $response->getStatusCode() . ')');
   $check($storage->load($internal->id())->get('status')->value === 'error', 'y la constancia sigue igual');
   \Drupal::service('account_switcher')->switchBack();
+
+  echo PHP_EOL . 'Marcar como resuelta' . PHP_EOL;
+  $resolve_access = static fn($entity, AccountInterface $account): bool => \Drupal\Core\Url::fromRoute('aseguramiento_automation.resolve', ['aseguramiento_constancia' => $entity->id()])->access($account);
+  $page = static function (string $path) use ($gestor): array {
+    \Drupal::service('account_switcher')->switchTo($gestor);
+    try {
+      $response = \Drupal::service('http_kernel')->handle(Request::create($path, 'GET'), \Symfony\Component\HttpKernel\HttpKernelInterface::SUB_REQUEST);
+      return [$response->getStatusCode(), (string) $response->getContent()];
+    }
+    finally {
+      \Drupal::service('account_switcher')->switchBack();
+    }
+  };
+  $check($gestor && $resolve_access($data, $gestor), 'El gestor puede marcar como resuelta una con error del cliente');
+  $check($gestor && !$resolve_access($sent, $gestor), 'Una enviada no se puede marcar');
+  $check(!$resolve_access($data, $anonymous), 'Un visitante sin sesión no puede');
+  [, $detail] = $page('/admin/aseguramiento/constancia/' . $data->id());
+  $check(str_contains($detail, 'Marcar como resuelta'), 'El detalle muestra el botón');
+  [$code, $confirm] = $page('/admin/aseguramiento/constancia/' . $data->id() . '/resolve');
+  $storage->resetCache([$data->id()]);
+  $check($code === 200 && str_contains($confirm, 'No se envía nada al cliente') && str_contains($confirm, 'Cómo se resolvió'), 'GET muestra la confirmación con la nota opcional (HTTP ' . $code . ')');
+  $check($storage->load($data->id())->get('status')->value === 'error', 'y la constancia sigue igual');
+  \Drupal::service('aseguramiento_automation.correction')->resolve($storage->load($data->id()), 'Gestor Aseguramiento', 'Llegó corregida en otro correo <b>AA-1</b>');
+  $storage->resetCache([$data->id()]);
+  $resolved = $storage->load($data->id());
+  $check($resolved->get('status')->value === 'corrected', 'Queda "Corregida"');
+  $check(str_contains((string) $resolved->get('logs')->value, 'Marcada como resuelta por Gestor Aseguramiento'), 'Bitácora: quién la marcó');
+  $check(!$resolve_access($resolved, $gestor), 'Ya no se puede volver a marcar');
+  [, $detail] = $page('/admin/aseguramiento/constancia/' . $data->id());
+  $check(str_contains($detail, 'Marcada como resuelta por Gestor Aseguramiento') && str_contains($detail, 'Llegó corregida en otro correo &lt;b&gt;AA-1&lt;/b&gt;'), 'El detalle dice quién, cuándo y la nota (escapada)');
+  $check(!str_contains($detail, '>Marcar como resuelta<'), 'y ya no muestra el botón');
 
   echo PHP_EOL . 'Reprocesar envía la constancia aunque venga de un lote' . PHP_EOL;
   $service->reprocess($storage->load($internal->id()), 'prueba');

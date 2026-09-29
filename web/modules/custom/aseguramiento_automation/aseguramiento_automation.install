@@ -229,6 +229,26 @@ function aseguramiento_automation_update_11012(): string {
 }
 
 /**
+ * "Corregida" status and the links between a constancia and its correction.
+ */
+function aseguramiento_automation_update_11013(): string {
+  $manager = \Drupal::entityDefinitionUpdateManager();
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('aseguramiento_constancia');
+  $fields = ConstanciaEntity::baseFieldDefinitions($entity_type);
+  $done = [];
+  // New allowed value; existing values are untouched.
+  $manager->updateFieldStorageDefinition($fields['status']->setName('status')->setTargetEntityTypeId('aseguramiento_constancia'));
+  $done[] = 'estado "Corregida"';
+  foreach (['corregida_por', 'corrige_a'] as $name) {
+    if (!$manager->getFieldStorageDefinition($name, 'aseguramiento_constancia')) {
+      $manager->installFieldStorageDefinition($name, 'aseguramiento_constancia', 'aseguramiento_automation', $fields[$name]);
+      $done[] = "campo $name";
+    }
+  }
+  return 'Constancias: ' . implode(', ', $done) . '.';
+}
+
+/**
  * Whether two email templates are the same, ignoring line endings and
  * trailing spaces (what saving a textarea changes).
  */

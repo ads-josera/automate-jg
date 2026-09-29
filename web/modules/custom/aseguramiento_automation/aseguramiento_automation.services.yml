@@ -113,6 +113,13 @@ services:
       - '@aseguramiento_automation.queue_manager'
       - '@logger.channel.aseguramiento_automation'
 
+  aseguramiento_automation.correction:
+    class: Drupal\aseguramiento_automation\Service\ConstanciaCorrectionService
+    arguments:
+      - '@entity_type.manager'
+      - '@aseguramiento_automation.solicitud_batch'
+      - '@aseguramiento_automation.audit'
+
   aseguramiento_automation.cron_subscriber:
     class: Drupal\aseguramiento_automation\EventSubscriber\CronSubscriber
     arguments:

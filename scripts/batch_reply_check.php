@@ -13,6 +13,9 @@
  *   plain-text part (the three things that sent it to Yahoo's spam);
  * - only invalid: one "requires corrections" email without attachments;
  * - an unreadable file next to a valid one: PDF plus "could not read";
+ * - answering our reply with the corrected file: the old constancia becomes
+ *   "Corregida" and is linked to the new one; a new email (not an answer)
+ *   or an ambiguous answer links nothing;
  * - running again sends nothing more.
  *
  * Usage (local DDEV only, needs the GreenMail container; see
@@ -58,10 +61,17 @@ $excel = static function (string $name, array $overrides) use ($template): strin
   return $path;
 };
 
-$send = static function (array $attachments, string $message_id = '') use ($client): void {
+$send = static function (array $attachments, string $message_id = '', array $answers = []) use ($client): void {
   $mailer = new PHPMailer(TRUE);
   if ($message_id !== '') {
     $mailer->MessageID = '<' . $message_id . '>';
+  }
+  // $answers: ['in_reply_to' => '<id>', 'references' => '<a> <b>'].
+  if (!empty($answers['in_reply_to'])) {
+    $mailer->addCustomHeader('In-Reply-To', $answers['in_reply_to']);
+  }
+  if (!empty($answers['references'])) {
+    $mailer->addCustomHeader('References', $answers['references']);
   }
   $mailer->isSMTP();
   $mailer->Host = 'greenmail-jg';
@@ -184,6 +194,60 @@ $check($from_domain !== '' && str_ends_with($mails[0]['message_id'] ?? '', '@' .
 $check((bool) preg_match('/^AA-\S+ \| Cliente B1\r?$/m', $mails[0]['text'] ?? ''), 'Texto plano: una constancia por renglón');
 $check((bool) preg_match('/^- Medio de transporte: falta llenarlo\r?$/m', $mails[0]['text'] ?? ''), 'Texto plano: cada corrección en su renglón');
 $check(str_contains($mails[0]['html'] ?? '', 'adjuntando solo el archivo corregido'), 'Pide responder solo con el archivo corregido');
+
+echo PHP_EOL . 'Escenario I: el cliente responde con el archivo corregido' . PHP_EOL;
+$our_reply_b = $mails[0]['message_id'] ?? '';
+[$old_b4] = array_values($constancias->loadByProperties(['solicitante' => 'Cliente B4'])) + [NULL];
+$check($old_b4 !== NULL && $old_b4->get('status')->value === 'error', 'Antes: la constancia de solicitud_4.xlsx está en error');
+$mailpit('DELETE');
+$send(['solicitud_4.xlsx' => $excel('Cliente B4', [])], 'correccion-' . uniqid() . '@cliente.example.com', [
+  // Only our reply's id: proves the reply's Message-ID was remembered (K
+  // covers finding the client's own original email in References).
+  'in_reply_to' => '<' . $our_reply_b . '>',
+  'references' => '<' . $our_reply_b . '>',
+]);
+$run();
+$mails = $toClient();
+$check(count($mails) === 1 && ($mails[0]['attachments'] ?? 0) === 1, 'El cliente recibe su constancia');
+$constancias->resetCache();
+$old_b4 = $old_b4 ? $constancias->load($old_b4->id()) : NULL;
+$new_b4 = array_values(array_filter($constancias->loadByProperties(['solicitante' => 'Cliente B4']), static fn($c): bool => $c->get('status')->value === 'sent'))[0] ?? NULL;
+$check($old_b4 && $old_b4->get('status')->value === 'corrected', 'La anterior pasa a "Corregida" (' . ($old_b4 ? $old_b4->get('status')->value : 'no existe') . ')');
+$check($old_b4 && $new_b4 && (int) $old_b4->get('corregida_por')->target_id === (int) $new_b4->id(), 'La anterior apunta a la nueva');
+$check($old_b4 && $new_b4 && (int) $new_b4->get('corrige_a')->target_id === (int) $old_b4->id(), 'La nueva apunta a la anterior');
+$check($old_b4 && str_contains((string) $old_b4->get('logs')->value, 'Corregida: el cliente respondió'), 'Queda en la bitácora');
+$summary = $toTeam($team)[0] ?? ['html' => ''];
+$check($team === [] || ($old_b4 && str_contains($summary['html'], '(corrige ' . $old_b4->label() . ')')), 'El resumen al encargado dice qué folio corrige');
+
+echo PHP_EOL . 'Escenario J: el corregido llega en un correo NUEVO (no es respuesta)' . PHP_EOL;
+$mailpit('DELETE');
+$send(['solicitud_j.xlsx' => $excel('Cliente J', ['I23' => ''])]);
+$run();
+$mailpit('DELETE');
+$send(['solicitud_j.xlsx' => $excel('Cliente J', [])]);
+$run();
+$constancias->resetCache();
+$j = $constancias->loadByProperties(['solicitante' => 'Cliente J']);
+$j_status = array_map(static fn($c): string => $c->get('status')->value, $j);
+sort($j_status);
+$check($j_status === ['error', 'sent'], 'No se adivina: la anterior sigue en error (' . implode(', ', $j_status) . ')');
+$check(!str_contains(($toTeam($team)[0]['html'] ?? ''), '(corrige '), 'El resumen no menciona corrección');
+
+echo PHP_EOL . 'Escenario K: respuesta ambigua (dos errores, nombres distintos, mismo beneficiario)' . PHP_EOL;
+$mailpit('DELETE');
+$send(['k1.xlsx' => $excel('Cliente K1', ['I23' => '']), 'k2.xlsx' => $excel('Cliente K2', ['I23' => ''])], $lote_k_id = 'lote-k-' . uniqid() . '@cliente.example.com');
+$run();
+$our_reply_k = $toClient()[0]['message_id'] ?? '';
+$mailpit('DELETE');
+// Only References (some clients send no In-Reply-To).
+$send(['k1_v2.xlsx' => $excel('Cliente K1', []), 'k2_v2.xlsx' => $excel('Cliente K2', [])], '', ['references' => '<' . $lote_k_id . '> <' . $our_reply_k . '>']);
+$run();
+$constancias->resetCache();
+$k_new = array_values(array_filter(array_merge($constancias->loadByProperties(['solicitante' => 'Cliente K1']), $constancias->loadByProperties(['solicitante' => 'Cliente K2'])), static fn($c): bool => $c->get('status')->value === 'sent'));
+$k_old = array_values(array_filter(array_merge($constancias->loadByProperties(['solicitante' => 'Cliente K1']), $constancias->loadByProperties(['solicitante' => 'Cliente K2'])), static fn($c): bool => $c->get('status')->value !== 'sent'));
+$new_batch = $k_new ? \Drupal::service('aseguramiento_automation.solicitud_batch')->get((string) $k_new[0]->get('lote')->value) : NULL;
+$check(($new_batch['corrige_lote'] ?? '') !== '', 'Se reconoce que responde al correo anterior (solo por References)');
+$check(count($k_new) === 2 && count($k_old) === 2 && array_unique(array_map(static fn($c): string => $c->get('status')->value, $k_old)) === ['error'], 'Sin forma segura de emparejar: las dos anteriores siguen en error');
 
 echo PHP_EOL . 'Escenario C: solo un Excel con error de fecha' . PHP_EOL;
 $mailpit('DELETE');

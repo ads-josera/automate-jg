@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Drupal\aseguramiento_automation\Controller;
 
+use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntityInterface;
 use Drupal\aseguramiento_automation\Service\ConstanciaReprocessService;
 use Drupal\aseguramiento_automation\Util\PageShell;
 use Drupal\aseguramiento_automation\Util\SolicitudErrorFormatter;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -84,6 +87,16 @@ final class ConstanciaController extends ControllerBase {
         '#attributes' => ['class' => ['aseguramiento-link-button']],
       ];
     }
+    $resolve = Url::fromRoute('aseguramiento_automation.resolve', ['aseguramiento_constancia' => $aseguramiento_constancia->id()]);
+    if ($status === 'error' && $resolve->access()) {
+      $build['summary']['actions']['resolve'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Marcar como resuelta'),
+        '#url' => $resolve,
+        '#attributes' => ['class' => ['aseguramiento-link-button', 'aseguramiento-link-button--secondary']],
+      ];
+    }
+    $build['summary']['correction_links'] = $this->correctionNotice($aseguramiento_constancia);
     if ($reprocess['fields'] !== []) {
       $items = implode('', array_map(fn(string $field): string => '<li>' . $this->escape($field) . '</li>', $reprocess['fields']));
       $build['summary']['correction'] = [
@@ -163,17 +176,41 @@ final class ConstanciaController extends ControllerBase {
     return $response;
   }
 
-  private function statusLabel(string $status): string {
-    return match ($status) {
-      'pending' => (string) $this->t('Pendiente'),
-      'queued' => (string) $this->t('En cola'),
-      'validating' => (string) $this->t('Validando'),
-      'validated' => (string) $this->t('Validado'),
-      'pdf_generated' => (string) $this->t('PDF generado'),
-      'sent' => (string) $this->t('Enviado'),
-      'error' => (string) $this->t('Error'),
-      default => $status,
+  /**
+   * What this constancia corrects, or what corrected it (links to both).
+   */
+  private function correctionNotice(ConstanciaEntityInterface $constancia): array {
+    $lines = [];
+    $link = function (?EntityInterface $other): string {
+      return $other ? '<a href="' . $this->escape($other->toUrl()->toString()) . '">' . $this->escape((string) $other->label()) . '</a>' : '';
     };
+    $corrected_by = $link($constancia->get('corregida_por')->entity);
+    if ($corrected_by !== '') {
+      $lines[] = (string) $this->t('El cliente la corrigió y se generó la constancia @folio.', ['@folio' => Markup::create($corrected_by)]);
+    }
+    $metadata = $constancia->get('metadata')->getValue()[0] ?? [];
+    if (!empty($metadata['resuelta'])) {
+      $resolved = $metadata['resuelta'];
+      $lines[] = (string) $this->t('Marcada como resuelta por @by el @date.', [
+        '@by' => (string) ($resolved['por'] ?? ''),
+        '@date' => $this->dateFormatter->format((int) ($resolved['fecha'] ?? 0), 'short'),
+      ]) . (($resolved['nota'] ?? '') !== '' ? ' ' . $this->t('Nota: @note', ['@note' => (string) $resolved['nota']]) : '');
+    }
+    $corrects = $link($constancia->get('corrige_a')->entity);
+    if ($corrects !== '') {
+      $lines[] = (string) $this->t('Corrige la constancia @folio, que tenía errores.', ['@folio' => Markup::create($corrects)]);
+    }
+    if ($lines === []) {
+      return [];
+    }
+    $title = $constancia->get('status')->value === 'corrected' ? $this->t('Corregida') : $this->t('Corrección');
+    return [
+      '#markup' => Markup::create('<div class="aseguramiento-detail__notice aseguramiento-detail__notice--done" role="note"><strong>' . $title . '</strong><p>' . implode('</p><p>', $lines) . '</p></div>'),
+    ];
+  }
+
+  private function statusLabel(string $status): string {
+    return (string) $this->t(ConstanciaEntity::STATUS_LABELS[$status] ?? $status);
   }
 
   private function escape(string $value): string {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\aseguramiento_automation\Plugin\QueueWorker;
 
 use Drupal\aseguramiento_automation\Entity\ConstanciaEntity;
+use Drupal\aseguramiento_automation\Service\ConstanciaCorrectionService;
 use Drupal\aseguramiento_automation\Service\MailService;
 use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
 use Drupal\aseguramiento_automation\Util\SolicitudErrorFormatter;
@@ -50,6 +51,7 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
     private readonly ConfigFactoryInterface $configFactory,
     private readonly MailService $mailService,
     private readonly SolicitudBatchService $batchService,
+    private readonly ConstanciaCorrectionService $corrections,
     private readonly LoggerInterface $logger,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -64,6 +66,7 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
       $container->get('config.factory'),
       $container->get('aseguramiento_automation.mail'),
       $container->get('aseguramiento_automation.solicitud_batch'),
+      $container->get('aseguramiento_automation.correction'),
       $container->get('logger.channel.aseguramiento_automation'),
     );
   }
@@ -158,9 +161,13 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
     // The common case (one valid request) keeps the configured template.
     // Batches created before reply threading have no reply_to_id.
     $reply_to_id = (string) ($batch['reply_to_id'] ?? '');
+    // Remembered before sending: if the client answers this email with a
+    // corrected file, the answer is tied back to this batch.
+    $own_id = $this->mailService->newMessageId();
+    $this->batchService->rememberThread($own_id, $lote);
     $sent = (count($ok) === 1 && $failed === [])
-      ? $this->mailService->sendConstancia($this->pdfRow($ok[0]['entity']), $ok[0]['pdf_uri'], $settings, $reply_to_id)
-      : $this->mailService->sendBatchReply(implode(',', $recipients), $ok, $failed, $settings, $reply_to_id);
+      ? $this->mailService->sendConstancia($this->pdfRow($ok[0]['entity']), $ok[0]['pdf_uri'], $settings, $reply_to_id, $own_id)
+      : $this->mailService->sendBatchReply(implode(',', $recipients), $ok, $failed, $settings, $reply_to_id, $own_id);
 
     if (!$sent) {
       $attempts = $this->batchService->countSendAttempt($lote);
@@ -183,6 +190,11 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
       $item['entity']->set('status', 'sent');
       $item['entity']->save();
     }
+    $corrects = $this->linkCorrections($batch, $ok);
+    foreach ($ok as &$item) {
+      $item['corrige'] = $corrects[(int) $item['entity']->id()] ?? '';
+    }
+    unset($item);
     $this->sendTeamSummary($batch, $ok, $failed, 'sent', $settings);
     if ($failed !== []) {
       $this->logger->info('[Aseguramiento] Se notificó al cliente qué corregir en el lote @lote: @n solicitudes sin constancia.', ['@lote' => $lote, '@n' => count($failed)]);
@@ -197,7 +209,11 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
   private function sendTeamSummary(array $batch, array $ok, array $failed, string $reply, array $settings): void {
     $rows = [];
     foreach ($ok as $item) {
-      $rows[] = ['file' => $item['file'], 'status' => 'ok', 'detail' => 'Constancia ' . $item['folio']];
+      $detail = 'Constancia ' . $item['folio'];
+      if (($item['corrige'] ?? '') !== '') {
+        $detail .= ' (corrige ' . $item['corrige'] . ')';
+      }
+      $rows[] = ['file' => $item['file'], 'status' => 'ok', 'detail' => $detail];
     }
     foreach ($failed as $item) {
       $client_fixable = $item['fields'] !== [];
@@ -219,6 +235,28 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
     }
     catch (\Throwable $e) {
       $this->logger->error('[Aseguramiento] No se pudo enviar el resumen al encargado. Detalle: @error', ['@error' => $e->getMessage()]);
+    }
+  }
+
+  /**
+   * Marks the constancias this batch corrects; never blocks the reply.
+   *
+   * @return array<int, string>
+   *   New constancia id => folio it corrects.
+   */
+  private function linkCorrections(array $batch, array $ok): array {
+    try {
+      $linked = $this->corrections->link($batch, $ok);
+      if (($batch['corrige_lote'] ?? '') !== '' && count($linked) < count($ok)) {
+        // No earlier error left, or no safe pairing: the team resolves those
+        // by hand ("Marcar como resuelta").
+        $this->logger->info('[Aseguramiento] El lote @lote responde a un correo anterior: @linked de @total constancias nuevas se asociaron a una anterior con error.', ['@lote' => $batch['id'], '@linked' => count($linked), '@total' => count($ok)]);
+      }
+      return $linked;
+    }
+    catch (\Throwable $e) {
+      $this->logger->error('[Aseguramiento] No se pudo marcar la corrección del lote @lote. Detalle: @error', ['@lote' => $batch['id'], '@error' => $e->getMessage()]);
+      return [];
     }
   }
 

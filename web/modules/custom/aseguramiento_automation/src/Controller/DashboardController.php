@@ -25,6 +25,7 @@ final class DashboardController extends ControllerBase {
     'pdf_generated' => 'PDF generado',
     'sent' => 'Enviadas',
     'error' => 'Con error',
+    'corrected' => 'Corregidas',
   ];
 
   private const STAT_LABELS = [

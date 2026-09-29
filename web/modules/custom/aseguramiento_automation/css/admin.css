@@ -283,6 +283,20 @@ body:has(.aseguramiento-standalone) .breadcrumb {
   font-size: 13px;
 }
 
+/* Second action next to a pink one ("Marcar como resuelta"). */
+.aseguramiento-link-button--secondary {
+  border-color: #d7dee9;
+  background: #fff;
+  color: #243a7b;
+}
+
+.aseguramiento-link-button--secondary:hover,
+.aseguramiento-link-button--secondary:focus {
+  border-color: #b9c4d6;
+  background: #f4f6fb;
+  color: #243a7b;
+}
+
 .aseguramiento-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(150px, 1fr));
@@ -505,6 +519,64 @@ body:has(.aseguramiento-standalone) .breadcrumb {
   outline-offset: 2px;
 }
 
+/* Optional note of "Marcar como resuelta". */
+.aseguramiento-confirm .form-type-textarea {
+  max-width: 70ch;
+  margin: 0;
+  padding: 16px 24px 0;
+}
+
+.aseguramiento-confirm .form-type-textarea label {
+  display: block;
+  margin-bottom: 6px;
+  color: #243a7b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.aseguramiento-confirm textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d7dee9;
+  border-radius: 7px;
+  background: #fff;
+  color: #1f2933;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.aseguramiento-confirm textarea:focus-visible {
+  border-color: #ff1384;
+  outline: 3px solid rgba(255, 19, 132, 0.2);
+  outline-offset: 0;
+}
+
+.aseguramiento-confirm .form-type-textarea .description {
+  margin-top: 6px;
+  color: #6b7789;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* The front theme's pager turned its links light blue on grey when hovered
+   (2.6:1). Panel colors instead. */
+.aseguramiento-dashboard .pager__link {
+  color: #485568;
+}
+
+.aseguramiento-dashboard .pager__link:hover,
+.aseguramiento-dashboard .pager__link:focus {
+  background: #f4f6fb;
+  color: #243a7b;
+}
+
+.aseguramiento-dashboard .pager__link:focus-visible {
+  outline: 3px solid rgba(255, 19, 132, 0.35);
+  outline-offset: 2px;
+}
+
 /* Panels clip their content (rounded corners): wide tables scroll inside
    this box instead of being cut off on narrow screens. */
 .aseguramiento-table-scroll {
@@ -588,6 +660,31 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 .aseguramiento-detail__notice ul {
   margin: 0;
   padding-left: 18px;
+}
+
+/* What a constancia corrects, or what corrected it. */
+.aseguramiento-detail__notice--done {
+  border-color: #d7dee9;
+  background: #f6f8fc;
+}
+
+.aseguramiento-detail__notice--done strong {
+  color: #243a7b;
+}
+
+.aseguramiento-detail__notice--done p:last-child {
+  margin-bottom: 0;
+}
+
+.aseguramiento-detail__notice a {
+  color: #243a7b;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
+.aseguramiento-detail__notice a:hover,
+.aseguramiento-detail__notice a:focus {
+  color: #b3085a;
 }
 
 .aseguramiento-detail-table {
@@ -834,6 +931,11 @@ body:has(.aseguramiento-standalone) .breadcrumb {
 .aseguramiento-badge--error {
   background: #ffe8ef;
   color: #b42352;
+}
+
+.aseguramiento-badge--corrected {
+  background: #eceff5;
+  color: #485568;
 }
 
 .aseguramiento-badge--pending,
