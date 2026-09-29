@@ -145,8 +145,8 @@ final class AutomationSettingsForm extends ConfigFormBase {
 
     $form['team_email'] = [
       '#type' => 'details',
-      '#title' => $this->t('Correo al encargado: nueva solicitud'),
-      '#description' => $this->t('Se envía a los correos de notificación cuando llega una solicitud, con los archivos del cliente adjuntos.'),
+      '#title' => $this->t('Correo al encargado: resultado de la solicitud'),
+      '#description' => $this->t('Se envía a los correos de notificación cuando termina de procesarse una solicitud: qué archivos generaron constancia, cuáles debe corregir el cliente y por qué, y si el cliente ya recibió su respuesta. Lleva adjuntos los formatos originales del cliente.'),
       '#open' => TRUE,
     ];
     $form['team_email']['notification_subject'] = [
@@ -157,7 +157,7 @@ final class AutomationSettingsForm extends ConfigFormBase {
     $form['team_email']['notification_body'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Cuerpo (HTML)'),
-      '#description' => $this->t('Variables: {{ remitente }}, {{ asunto }}, {{ fecha }}, {{ archivos }} (cantidad de adjuntos) y {{ logo_data_uri }} (logo). Si lo dejas vacío se usa el diseño original.'),
+      '#description' => $this->t('Variables: {{ remitente }}, {{ asunto }}, {{ fecha }}, {{ archivos }} (cantidad de archivos recibidos), {{ resumen }} (por ejemplo "2 constancias, 1 por corregir"), {{ resultados }} (tabla por archivo), {{ estado_respuesta }} (si el cliente ya recibió su respuesta) y {{ logo_data_uri }} (logo). Si lo dejas vacío se usa el diseño original.'),
       '#default_value' => $config->get('notification_body') ?: EmailTemplateDefaults::NOTIFICATION_BODY,
       '#rows' => 14,
     ];

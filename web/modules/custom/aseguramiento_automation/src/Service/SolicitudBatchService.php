@@ -65,6 +65,9 @@ final class SolicitudBatchService {
     foreach (array_values($files) as $index => $file) {
       $batch['files'][self::fileKey($file, $index)] = [
         'name' => (string) ($file['name'] ?? ''),
+        // Where the original is, to attach it to the team summary.
+        'uri' => (string) ($file['uri'] ?? ''),
+        'type' => (string) ($file['type'] ?? ''),
         'state' => 'pending',
         'error' => '',
         'constancias' => [],

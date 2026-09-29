@@ -185,6 +185,30 @@ function aseguramiento_automation_update_11010(): string {
 }
 
 /**
+ * Team email: result summary instead of an arrival notice.
+ */
+function aseguramiento_automation_update_11011(): string {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  $messages = [];
+  foreach ([
+    'notification_subject' => [EmailTemplateDefaults::LEGACY_NOTIFICATION_SUBJECT, EmailTemplateDefaults::NOTIFICATION_SUBJECT],
+    'notification_body' => [EmailTemplateDefaults::LEGACY_NOTIFICATION_BODY, EmailTemplateDefaults::NOTIFICATION_BODY],
+  ] as $key => [$legacy, $new]) {
+    $current = (string) $config->get($key);
+    // Replaced only when untouched: a customized email is kept as is.
+    if ($current === '' || $current === $legacy) {
+      $config->set($key, $new);
+      $messages[] = "$key: diseño de resumen.";
+    }
+    else {
+      $messages[] = "$key: estaba personalizado y no se cambió (agrega {{ resultados }} y {{ estado_respuesta }} para ver el resultado).";
+    }
+  }
+  $config->save();
+  return 'Correo al encargado: ' . implode(' ', $messages);
+}
+
+/**
  * Ensures the operational manager role exists with dashboard permissions.
  */
 function aseguramiento_automation_ensure_gestor_role(): void {

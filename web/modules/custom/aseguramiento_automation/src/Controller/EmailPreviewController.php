@@ -51,14 +51,24 @@ final class EmailPreviewController extends ControllerBase {
 
     $rendered = match ($template) {
       'client' => $this->mailService->renderClientReply($this->sampleConstancia(), $settings),
-      'team' => $this->mailService->renderInboundNotification(['from' => 'cliente@ejemplo.com', 'subject' => 'Solicitud de aseguramiento'], 2, $settings),
+      'team' => $this->mailService->renderTeamSummary([
+        'from' => 'cliente@ejemplo.com',
+        'subject' => 'Solicitud de aseguramiento',
+        'files' => 3,
+        'rows' => [
+          ['file' => 'solicitud_1.xlsx', 'status' => 'ok', 'detail' => 'Constancia AA-20260929-ejemplo1'],
+          ['file' => 'solicitud_2.xlsx', 'status' => 'ok', 'detail' => 'Constancia AA-20260929-ejemplo2'],
+          ['file' => 'solicitud_3.xlsx', 'status' => 'fix', 'detail' => 'Suma asegurada total: $700,000.00 USD supera el máximo de $600,000.00 USD.'],
+        ],
+        'reply' => 'sent',
+      ], $settings),
       'batch' => $this->mailService->renderBatchReply($this->sampleOk(), $this->sampleFailed(), $settings),
     };
     $is_html = $template !== 'client' || $settings['email_reply_is_html'];
     return new JsonResponse([
       'subject' => $rendered['subject'],
       'html' => $this->mailService->previewDocument($rendered['body'], $is_html),
-      'note' => $template === 'batch' ? (string) $this->t('Ejemplo: 3 archivos, 2 constancias generadas y 1 que requiere corrección.') : '',
+      'note' => in_array($template, ['batch', 'team'], TRUE) ? (string) $this->t('Ejemplo: 3 archivos, 2 constancias generadas y 1 que requiere corrección.') : '',
     ]);
   }
 

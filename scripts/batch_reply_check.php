@@ -125,6 +125,19 @@ $toClient = static function () use ($mailpit, $client): array {
   return $out;
 };
 
+// Emails addressed to the team (the result summary; the reply copy goes to
+// the client with the team in Bcc).
+$toTeam = static function (array $team) use ($mailpit): array {
+  $out = [];
+  foreach ($mailpit()['messages'] ?? [] as $message) {
+    if ($team !== [] && array_intersect($team, array_column($message['To'], 'Address')) !== []) {
+      $detail = $mailpit('GET', '/api/v1/message/' . $message['ID']);
+      $out[] = ['subject' => $message['Subject'], 'html' => (string) ($detail['HTML'] ?? ''), 'attachments' => array_column($detail['Attachments'] ?? [], 'FileName')];
+    }
+  }
+  return $out;
+};
+
 // Test mailbox account (removed at the end).
 $accounts = \Drupal::entityTypeManager()->getStorage('aseguramiento_mail_account');
 if (!$accounts->load('greenmail_prueba')) {
@@ -205,6 +218,33 @@ $mails = $toClient();
 $check(count($mails) === 1, 'El cliente recibe UN solo correo (recibió ' . count($mails) . ')');
 $check(($mails[0]['attachments'] ?? 0) === 1, 'Constancia solo para la del límite exacto de 600,000 USD (adjuntos: ' . ($mails[0]['attachments'] ?? 0) . ')');
 $check(str_contains($mails[0]['html'] ?? '', 'Suma asegurada total: $700,000.00 USD supera el máximo de $600,000.00 USD'), 'Explica que 500,000 + 150,000 + 30,000 + 20,000 = $700,000.00 USD supera el máximo');
+$summaries = $toTeam($team);
+$check(count($summaries) === 1, 'El encargado recibe UN resumen, sin aviso previo de "llegó" (recibió ' . count($summaries) . ')');
+$summary = $summaries[0] ?? ['subject' => '', 'html' => '', 'attachments' => []];
+$check(str_contains($summary['subject'], '1 constancia, 1 por corregir'), 'Asunto con el resultado ("' . $summary['subject'] . '")');
+$check(str_contains($summary['html'], 'solicitud_fuera_rango.xlsx') && str_contains($summary['html'], 'Por corregir') && str_contains($summary['html'], 'supera el máximo de $600,000.00 USD'), 'Dice qué archivo hay que corregir y por qué');
+$check(str_contains($summary['html'], 'solicitud_en_el_limite.xlsx') && str_contains($summary['html'], 'Constancia AA-'), 'Dice qué archivo generó constancia y su folio');
+$check(str_contains($summary['html'], 'El cliente ya recibió su respuesta'), 'Dice que el cliente ya fue respondido');
+$check(count($summary['attachments']) === 2, 'Lleva los 2 formatos originales del cliente (' . implode(', ', $summary['attachments']) . ')');
+
+echo PHP_EOL . 'Escenario H: correo sin archivos de solicitud' . PHP_EOL;
+$mailpit('DELETE');
+$send([]);
+$run();
+$summaries = $toTeam($team);
+$check(count($summaries) === 1 && str_contains($summaries[0]['subject'], 'sin archivos de solicitud') && str_contains($summaries[0]['html'], 'no traía archivos de solicitud'), 'El encargado sabe que llegó un correo sin Excel ni PDF y que el cliente no recibió respuesta');
+$check($toClient() === [], 'Al cliente no se le responde');
+
+echo PHP_EOL . 'Resumen al encargado cuando no se pudo responder al cliente' . PHP_EOL;
+$mail_service = \Drupal::service('aseguramiento_automation.mail');
+$settings_raw = \Drupal::config('aseguramiento_automation.settings')->getRawData();
+$row = [['file' => 'solicitud.xlsx', 'status' => 'ok', 'detail' => 'Constancia AA-1']];
+$failed_reply = $mail_service->renderTeamSummary(['from' => $client, 'files' => 1, 'rows' => $row, 'reply' => 'failed'], $settings_raw);
+$check(str_contains($failed_reply['body'], 'No se pudo enviar la respuesta al cliente') && str_contains($failed_reply['body'], 'manualmente'), 'Le pide enviar la respuesta a mano');
+$no_email = $mail_service->renderTeamSummary(['from' => $client, 'files' => 1, 'rows' => $row, 'reply' => 'no_recipient'], $settings_raw);
+$check(str_contains($no_email['body'], 'No hay un correo válido del cliente'), 'Avisa que no hay correo válido del cliente');
+$internal = $mail_service->renderTeamSummary(['from' => $client, 'files' => 1, 'rows' => [['file' => 'x.xlsx', 'status' => 'internal', 'detail' => 'No fue posible generar el PDF']], 'reply' => 'sent'], $settings_raw);
+$check(str_contains($internal['subject'], '1 con error interno') && str_contains($internal['body'], 'Error interno'), 'Un error nuestro se distingue de uno del cliente ("' . $internal['subject'] . '")');
 
 echo PHP_EOL . 'Escenario F: formato PDF rellenable (uno bien, uno incompleto, uno protegido)' . PHP_EOL;
 $mailpit('DELETE');

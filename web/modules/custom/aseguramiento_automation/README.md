@@ -60,6 +60,7 @@ Cada correo recibido forma un **lote** (`SolicitudBatchService`, almacén key-va
 
 - Un solo Excel válido: el correo configurado de siempre (asunto y plantilla de ajustes) con su PDF.
 - Varios archivos o alguno con errores: un correo con todos los PDF generados y, por archivo, qué corregir con las etiquetas del formato (`Util\SolicitudErrorFormatter`). El encargado (`notification_emails`) recibe copia oculta.
+- **Resumen para el encargado** (update 11011): cuando termina de procesarse un correo, después de responder al cliente, el encargado recibe un correo con el resultado por archivo (Constancia / Por corregir con el motivo / Error interno), si el cliente ya recibió la respuesta (o si no se pudo enviar y hay que hacerlo a mano) y los formatos originales adjuntos. Reemplaza al aviso de "llegó una solicitud", que salía antes de leer los archivos. Un correo sin Excel ni PDF se avisa de inmediato. Editable con vista previa en la configuración (variables `{{ resumen }}`, `{{ resultados }}`, `{{ estado_respuesta }}`).
 - Archivo ilegible o sin datos: se informa en la misma respuesta en lugar de perderse.
 - Problemas internos (sin plantilla, fallo al generar el PDF): se avisa que no hay nada que corregir y que el equipo dará seguimiento.
 - La respuesta espera a que todo el lote termine (reintento diferido de la cola); tras 30 minutos responde con lo que haya. Nunca responde dos veces el mismo lote. Si el envío falla, reintenta hasta 5 veces.

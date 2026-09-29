@@ -9,17 +9,74 @@ namespace Drupal\aseguramiento_automation\Mail;
  *
  * Used to seed the settings on install/update and as fallback when a setting
  * is empty, so an emptied textarea never sends a blank email. The team
- * notification is the exact design that was hard-coded in MailService.
+ * email is a summary of the result, sent once the client has been answered.
  *
  * Variables use {{ name }}. Values coming from the client (names, sender,
- * subject) are HTML-escaped when inserted; the {{ lista_* }} and
- * {{ aviso_interno }} blocks are HTML built by the module.
+ * subject) are HTML-escaped when inserted; the {{ lista_* }},
+ * {{ aviso_interno }}, {{ resultados }} and {{ estado_respuesta }} blocks are
+ * HTML built by the module.
  */
 final class EmailTemplateDefaults {
 
-  public const NOTIFICATION_SUBJECT = 'Nueva solicitud de aseguramiento';
+  public const NOTIFICATION_SUBJECT = 'Solicitud de {{ remitente }}: {{ resumen }}';
 
   public const NOTIFICATION_BODY = <<<'HTML'
+<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;">
+    <tr>
+      <td align="center" style="padding:28px 16px;">
+        <div style="padding:10px 0 28px;text-align:center;">
+          <img src="{{ logo_data_uri }}" width="190" alt="JG Mylard" style="display:inline-block;width:190px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;">
+        </div>
+        <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:620px;max-width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #d9dee5;">
+          <tr>
+            <td style="padding:24px 28px;background:#243a7b;color:#ffffff;">
+              <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">Resultado de la solicitud</div>
+              <div style="font-size:13px;margin-top:6px;opacity:.9;">{{ resumen }} · {{ fecha }}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 22px;background:#f8fafc;border:1px solid #e3e8ef;">
+                <tr>
+                  <td style="padding:12px 14px;font-size:13px;color:#52606d;">Remitente</td>
+                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;">{{ remitente }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 14px;font-size:13px;color:#52606d;border-top:1px solid #e3e8ef;">Asunto</td>
+                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;border-top:1px solid #e3e8ef;">{{ asunto }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 14px;font-size:13px;color:#52606d;border-top:1px solid #e3e8ef;">Archivos recibidos</td>
+                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#1f2933;border-top:1px solid #e3e8ef;">{{ archivos }}</td>
+                </tr>
+              </table>
+              {{ resultados }}
+              {{ estado_respuesta }}
+              <p style="margin:0;font-size:13px;line-height:1.6;color:#52606d;">Los formatos originales del cliente van adjuntos. Este correo fue generado automáticamente por el sistema de automatización documental.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e3e8ef;font-size:12px;color:#697586;">
+              Solicitud JG Mylard
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
+HTML;
+
+  /**
+   * Previous team email (an arrival notice sent before the files were read).
+   *
+   * Kept only so update 11011 can tell an untouched setting, which it
+   * replaces with the result summary, from a customized one, which it keeps.
+   */
+  public const LEGACY_NOTIFICATION_SUBJECT = 'Nueva solicitud de aseguramiento';
+
+  public const LEGACY_NOTIFICATION_BODY = <<<'HTML'
 <div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f6f8;">
     <tr>

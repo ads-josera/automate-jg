@@ -121,7 +121,7 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
       $pdf = (string) $entity->get('pdf_generado')->value;
       $status = (string) $entity->get('status')->value;
       if ($pdf !== '' && in_array($status, ['pdf_generated', 'sent'], TRUE)) {
-        $ok[] = ['entity' => $entity, 'folio' => $entity->label(), 'nombre' => $this->displayName($entity), 'pdf_uri' => $pdf];
+        $ok[] = ['entity' => $entity, 'folio' => $entity->label(), 'nombre' => $this->displayName($entity), 'pdf_uri' => $pdf, 'file' => $file_names[(int) $entity->id()] ?? basename((string) $entity->get('excel_original')->value)];
         continue;
       }
       $errors = SolicitudErrorFormatter::describe($entity->get('errores')->value);
@@ -151,6 +151,7 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
     if ($recipients === []) {
       $this->logger->error('[Aseguramiento] El lote @lote no tiene un correo válido para responder al cliente.', ['@lote' => $lote]);
       $this->batchService->markReplied($lote);
+      $this->sendTeamSummary($batch, $ok, $failed, 'no_recipient', $settings);
       return;
     }
 
@@ -173,6 +174,7 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
         $item['entity']->save();
       }
       $this->batchService->markReplied($lote);
+      $this->sendTeamSummary($batch, $ok, $failed, 'failed', $settings);
       return;
     }
 
@@ -181,8 +183,42 @@ final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerF
       $item['entity']->set('status', 'sent');
       $item['entity']->save();
     }
+    $this->sendTeamSummary($batch, $ok, $failed, 'sent', $settings);
     if ($failed !== []) {
       $this->logger->info('[Aseguramiento] Se notificó al cliente qué corregir en el lote @lote: @n solicitudes sin constancia.', ['@lote' => $lote, '@n' => count($failed)]);
+    }
+  }
+
+  /**
+   * Tells the team how each file of the email ended, and whether the client
+   * got the answer. Sent once, after the reply (or after giving up on it); a
+   * failure here is logged and never re-sends the client's reply.
+   */
+  private function sendTeamSummary(array $batch, array $ok, array $failed, string $reply, array $settings): void {
+    $rows = [];
+    foreach ($ok as $item) {
+      $rows[] = ['file' => $item['file'], 'status' => 'ok', 'detail' => 'Constancia ' . $item['folio']];
+    }
+    foreach ($failed as $item) {
+      $client_fixable = $item['fields'] !== [];
+      $rows[] = [
+        'file' => $item['file'],
+        'status' => $client_fixable ? 'fix' : 'internal',
+        'detail' => implode('; ', $client_fixable ? $item['fields'] : $item['internal']),
+      ];
+    }
+    $files = array_values(array_filter($batch['files'], static fn(array $file): bool => ($file['uri'] ?? '') !== ''));
+    try {
+      $this->mailService->sendTeamSummary([
+        'from' => $batch['from'],
+        'subject' => $batch['subject'],
+        'files' => count($batch['files']),
+        'rows' => $rows,
+        'reply' => $reply,
+      ], $files, $settings);
+    }
+    catch (\Throwable $e) {
+      $this->logger->error('[Aseguramiento] No se pudo enviar el resumen al encargado. Detalle: @error', ['@error' => $e->getMessage()]);
     }
   }
 

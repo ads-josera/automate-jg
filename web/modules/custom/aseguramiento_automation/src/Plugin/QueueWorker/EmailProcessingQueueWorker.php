@@ -115,7 +115,12 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
         '@excel' => $excel_count,
         '@pdf' => $pdf_count,
       ]);
-      $this->mailService->sendInboundRequestNotification($message, $files, $settings);
+      // The team gets a summary of the result once the client is answered
+      // (MailSendingQueueWorker). With no request files there will be no
+      // answer, so it is told now.
+      if ($files === []) {
+        $this->mailService->sendTeamSummary(['from' => $message['from'] ?? '', 'subject' => $message['subject'] ?? '', 'files' => 0, 'rows' => [], 'reply' => 'none'], [], $settings);
+      }
       // One batch per email: the client gets a single reply for all files.
       $lote = $files !== [] ? $this->batchService->start($account, $message, $files) : NULL;
       foreach (array_values($files) as $index => $file) {

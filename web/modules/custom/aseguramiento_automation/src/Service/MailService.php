@@ -90,17 +90,74 @@ final class MailService {
    *
    * @return array{subject: string, body: string}
    */
-  public function renderInboundNotification(array $message, int $attachment_count, array $settings): array {
-    $data = $this->withSystemVariables([
-      'remitente' => $this->decodeMimeHeader((string) ($message['from'] ?? 'Cliente')),
-      'asunto' => $this->decodeMimeHeader((string) ($message['subject'] ?? 'Solicitud de aseguramiento')),
-      'fecha' => date('d/m/Y H:i'),
-      'archivos' => (string) $attachment_count,
+  /**
+   * The team email: what came in and how each file ended.
+   *
+   * @param array $summary
+   *   - from, subject: of the client's email;
+   *   - files: number of request files received;
+   *   - rows: [file, status (ok|fix|internal), detail] per request;
+   *   - reply: sent|failed|no_recipient|none (none: nothing to answer).
+   *
+   * @return array{subject: string, body: string}
+   */
+  public function renderTeamSummary(array $summary, array $settings): array {
+    $rows = (array) ($summary['rows'] ?? []);
+    $count = static fn(string $status): int => count(array_filter($rows, static fn(array $row): bool => $row['status'] === $status));
+    $parts = array_filter([
+      $count('ok') ? $count('ok') . ($count('ok') === 1 ? ' constancia' : ' constancias') : '',
+      $count('fix') ? $count('fix') . ' por corregir' : '',
+      $count('internal') ? $count('internal') . ($count('internal') === 1 ? ' con error interno' : ' con errores internos') : '',
     ]);
+    $data = $this->withSystemVariables([
+      'remitente' => $this->decodeMimeHeader((string) ($summary['from'] ?? 'Cliente')),
+      'asunto' => $this->decodeMimeHeader((string) ($summary['subject'] ?? 'Solicitud de aseguramiento')),
+      'fecha' => date('d/m/Y H:i'),
+      'archivos' => (string) (int) ($summary['files'] ?? 0),
+      'resumen' => $parts !== [] ? implode(', ', $parts) : 'sin archivos de solicitud',
+    ]);
+    $raw = [
+      'resultados' => $this->teamResultsTable($rows),
+      'estado_respuesta' => $this->teamReplyStatus((string) ($summary['reply'] ?? 'none')),
+    ];
     return [
       'subject' => $this->renderTemplate($this->setting($settings, 'notification_subject'), $data, FALSE),
-      'body' => $this->renderTemplate($this->setting($settings, 'notification_body'), $data, TRUE),
+      'body' => $this->renderTemplate($this->setting($settings, 'notification_body'), $data, TRUE, $raw),
     ];
+  }
+
+  private function teamResultsTable(array $rows): string {
+    if ($rows === []) {
+      return '';
+    }
+    $e = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    // Text label and colour: the colour is never the only signal.
+    $labels = [
+      'ok' => ['Constancia', '#087443', '#e7f7ef'],
+      'fix' => ['Por corregir', '#8a5b00', '#fff6db'],
+      'internal' => ['Error interno', '#b42352', '#ffe8ef'],
+    ];
+    $cell = 'padding:10px 12px;font-size:13px;border-top:1px solid #e3e8ef;vertical-align:top;';
+    $html = '';
+    foreach ($rows as $row) {
+      [$label, $fg, $bg] = $labels[$row['status']] ?? $labels['internal'];
+      $html .= '<tr><td style="' . $cell . 'font-weight:700;color:#1f2933;">' . $e($row['file']) . '</td>'
+        . '<td style="' . $cell . 'white-space:nowrap;"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;color:' . $fg . ';background:' . $bg . ';">' . $label . '</span></td>'
+        . '<td style="' . $cell . 'color:#52606d;">' . $e($row['detail']) . '</td></tr>';
+    }
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 18px;border:1px solid #e3e8ef;">'
+      . '<tr><td style="padding:8px 12px;font-size:12px;color:#697586;">Archivo</td><td style="padding:8px 12px;font-size:12px;color:#697586;">Resultado</td><td style="padding:8px 12px;font-size:12px;color:#697586;">Detalle</td></tr>'
+      . $html . '</table>';
+  }
+
+  private function teamReplyStatus(string $reply): string {
+    [$text, $color] = match ($reply) {
+      'sent' => ['El cliente ya recibió su respuesta; te llega copia aparte con los PDF generados.', '#52606d'],
+      'failed' => ['No se pudo enviar la respuesta al cliente después de varios intentos. Envíale sus constancias o su corrección manualmente.', '#b42352'],
+      'no_recipient' => ['No hay un correo válido del cliente; no se le respondió.', '#b42352'],
+      default => ['El correo no traía archivos de solicitud (Excel o PDF), así que el cliente no recibió respuesta.', '#8a5b00'],
+    };
+    return '<p style="margin:0 0 18px;font-size:14px;line-height:1.6;font-weight:700;color:' . $color . ';">' . $text . '</p>';
   }
 
   /**
@@ -243,15 +300,20 @@ final class MailService {
     return !empty($result['result']);
   }
 
-  public function sendInboundRequestNotification(array $message, array $files, array $settings): bool {
+  /**
+   * Sends the team summary, with the client's original files attached.
+   *
+   * @param array $files
+   *   Original request files: [uri, name, type].
+   */
+  public function sendTeamSummary(array $summary, array $files, array $settings): bool {
     if (empty($settings['notify_on_inbound_request'])) {
-      $this->logger->info('[Aseguramiento] Notificación interna omitida porque está desactivada en configuración.');
+      $this->logger->info('[Aseguramiento] Resumen para el encargado omitido porque la notificación interna está desactivada.');
       return TRUE;
     }
-
     $recipients = $this->notificationEmails($settings);
     if ($recipients === []) {
-      $this->logger->warning('[Aseguramiento] Notificación interna omitida porque no hay destinatarios configurados.');
+      $this->logger->warning('[Aseguramiento] Resumen para el encargado omitido porque no hay destinatarios configurados.');
       return TRUE;
     }
 
@@ -260,32 +322,27 @@ final class MailService {
       $uri = (string) ($file['uri'] ?? '');
       $path = $uri !== '' ? $this->fileSystem->realpath($uri) : FALSE;
       if ($path && is_readable($path)) {
-        $type = (string) ($file['type'] ?? '');
         $attachments[] = [
           'filepath' => $path,
           'filename' => (string) ($file['name'] ?? basename($path)),
-          'filemime' => $type === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'filemime' => ($file['type'] ?? '') === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ];
       }
     }
 
-    $rendered = $this->renderInboundNotification($message, count($attachments), $settings);
-
+    $rendered = $this->renderTeamSummary($summary, $settings);
     $sent = $this->sendWithPhpMailer(implode(',', $recipients), [
       'subject' => $rendered['subject'],
       'body' => $rendered['body'],
       'is_html' => TRUE,
       'attachments' => $attachments,
     ]);
+    $context = ['@to' => implode(', ', $recipients), '@subject' => $rendered['subject']];
     if ($sent) {
-      $this->logger->info('[Aseguramiento] Correo de notificación interna enviado correctamente a @to.', [
-        '@to' => implode(', ', $recipients),
-      ]);
+      $this->logger->info('[Aseguramiento] Resumen enviado al encargado (@to): @subject.', $context);
     }
     else {
-      $this->logger->error('[Aseguramiento] Error al enviar notificación interna a @to.', [
-        '@to' => implode(', ', $recipients),
-      ]);
+      $this->logger->error('[Aseguramiento] Error al enviar el resumen al encargado (@to): @subject.', $context);
     }
     return $sent;
   }
