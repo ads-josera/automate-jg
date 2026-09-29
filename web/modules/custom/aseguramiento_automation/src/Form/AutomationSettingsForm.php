@@ -244,13 +244,14 @@ final class AutomationSettingsForm extends ConfigFormBase {
       ->set('required_subject_keywords', $this->linesToList((string) $form_state->getValue('required_subject_keywords')))
       ->set('storage_private_scheme', $form_state->getValue('storage_private_scheme'))
       ->set('email_reply_subject', $form_state->getValue('email_reply_subject'))
-      ->set('email_reply_body', $form_state->getValue('email_reply_body'))
+      ->set('email_reply_body', str_replace(["\r\n", "\r"], "\n", (string) $form_state->getValue('email_reply_body')))
       ->set('email_reply_is_html', (bool) $form_state->getValue('email_reply_is_html'))
       ->set('notification_emails', $this->notificationEmails($form_state))
       ->set('notify_on_inbound_request', (bool) $form_state->getValue('notify_on_inbound_request'))
       ->set('copy_notifications_on_customer_reply', (bool) $form_state->getValue('copy_notifications_on_customer_reply'));
     foreach (array_keys(EmailTemplateDefaults::settings()) as $key) {
-      $config->set($key, (string) $form_state->getValue($key));
+      // Browsers submit textareas with \r\n; stored with \n like the defaults.
+      $config->set($key, str_replace(["\r\n", "\r"], "\n", (string) $form_state->getValue($key)));
     }
     foreach (['usd', 'mxn'] as $currency) {
       foreach (['min', 'max'] as $bound) {

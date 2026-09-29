@@ -196,7 +196,7 @@ function aseguramiento_automation_update_11011(): string {
   ] as $key => [$legacy, $new]) {
     $current = (string) $config->get($key);
     // Replaced only when untouched: a customized email is kept as is.
-    if ($current === '' || $current === $legacy) {
+    if ($current === '' || aseguramiento_automation_same_template($current, $legacy)) {
       $config->set($key, $new);
       $messages[] = "$key: diseño de resumen.";
     }
@@ -206,6 +206,35 @@ function aseguramiento_automation_update_11011(): string {
   }
   $config->save();
   return 'Correo al encargado: ' . implode(' ', $messages);
+}
+
+/**
+ * Team email summary where 11011 kept the old design only for line endings.
+ *
+ * Saving the settings form stores textareas with Windows line endings
+ * (\r\n), so an untouched body no longer matched the original byte for
+ * byte and 11011 took it as customized.
+ */
+function aseguramiento_automation_update_11012(): string {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  $current = (string) $config->get('notification_body');
+  if (aseguramiento_automation_same_template($current, EmailTemplateDefaults::NOTIFICATION_BODY)) {
+    return 'El correo al encargado ya tenía el diseño de resumen.';
+  }
+  if ($current !== '' && !aseguramiento_automation_same_template($current, EmailTemplateDefaults::LEGACY_NOTIFICATION_BODY)) {
+    return 'El correo al encargado está personalizado; no se cambió (agrega {{ resultados }} y {{ estado_respuesta }}).';
+  }
+  $config->set('notification_body', EmailTemplateDefaults::NOTIFICATION_BODY)->save();
+  return 'Correo al encargado: diseño de resumen (el anterior solo difería en saltos de línea).';
+}
+
+/**
+ * Whether two email templates are the same, ignoring line endings and
+ * trailing spaces (what saving a textarea changes).
+ */
+function aseguramiento_automation_same_template(string $a, string $b): bool {
+  $normalize = static fn(string $text): string => trim((string) preg_replace('/[ \t]+\n/', "\n", str_replace(["\r\n", "\r"], "\n", $text)));
+  return $normalize($a) === $normalize($b);
 }
 
 /**
