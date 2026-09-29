@@ -26,7 +26,7 @@ use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Protection;
 
-$path = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato_jr_preparado.xlsx';
+$path = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
 $limits = \Drupal::service('aseguramiento_automation.amount_limits');
 $usd = $limits->forCurrency('USD');
 $mxn = $limits->forCurrency('MXN');

@@ -20,7 +20,7 @@ declare(strict_types=1);
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-$path = $extra[0] ?? DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato_jr_preparado.xlsx';
+$path = $extra[0] ?? DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
 $book = IOFactory::load($path);
 $form = $book->getSheetByName('Solicitud');
 $data = $book->getSheetByName('Datos');

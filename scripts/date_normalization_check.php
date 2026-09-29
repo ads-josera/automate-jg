@@ -22,7 +22,7 @@ declare(strict_types=1);
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
-$template = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato_jr_preparado.xlsx';
+$template = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
 $base = [
   'C8' => 'Cliente prueba fechas', 'C12' => 'Beneficiario', 'D18' => 'Mercancia',
   'D24' => 'Origen', 'D25' => 'Destino', 'I23' => 'Terrestre',
