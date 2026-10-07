@@ -27,7 +27,7 @@ Archivos de diseño (Illustrator) y las bases en PDF que usan los generadores. N
 | `Guia-para-el-usuario.ai` / `.pdf` | Membrete de la guía del usuario (`scripts/build_guides.php`). |
 | `Guia-para-el-gestor.ai` / `.pdf` | Membrete de la guía del gestor (`scripts/build_guides.php`). |
 
-Los `.ai` no se guardan en git: son el original de diseño y viven solo aquí.
+Los `.ai` son los originales de diseño y también quedan respaldados en git: si se borran por error, se recuperan con `git checkout -- docs/diseno/<archivo>`.
 
 ## desarrollo/
 
