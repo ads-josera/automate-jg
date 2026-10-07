@@ -19,10 +19,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Downloads and validates inbound message attachments.
  *
+ * Processed only by `drush aseguramiento:procesar-correo` (no "cron" key):
+ * that command drops an item that fails for good, while Drupal's cron would
+ * put it back and retry it on every run, forever.
+ *
  * @QueueWorker(
  *   id = "aseguramiento_email_processing",
- *   title = @Translation("Aseguramiento email processing"),
- *   cron = {"time" = 60}
+ *   title = @Translation("Aseguramiento email processing")
  * )
  */
 final class EmailProcessingQueueWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {

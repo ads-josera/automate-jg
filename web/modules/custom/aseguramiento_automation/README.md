@@ -220,7 +220,18 @@ Colas registradas:
 - `aseguramiento_pdf_generation`
 - `aseguramiento_mail_sending`
 
-Drupal cron ejecuta cada worker según su ventana configurada. Para alto volumen, usa un runner dedicado de Queue API o un backend de colas distribuido compatible con Drupal.
+**Solo las procesa `drush aseguramiento:procesar-correo`**, que el servidor ejecuta cada minuto bajo un candado (`flock`). Lee el buzón y luego corre las cuatro colas en orden. Los workers no tienen la clave `cron`: el cron de Drupal no las toca. Así, un elemento que falla de forma definitiva se registra y se descarta. Con el cron de Drupal se reintentaría para siempre.
+
+El cron de Drupal (`drush cron`) corre **una vez al día, de madrugada y bajo el mismo candado**, solo para la limpieza normal de Drupal: purga del registro (`dblog.settings:row_limit` = 100000, unas 3 semanas), datos expirados y temporales. El módulo no implementa `hook_cron()`: el buzón no se lee desde ahí.
+
+Crontab del servidor:
+
+```
+* * * * * cd ~/jgmylard.work && flock -n ~/tmp/procesar-correo.lock php vendor/drush/drush/drush.php aseguramiento:procesar-correo
+30 3 * * * cd ~/jgmylard.work && flock -w 300 ~/tmp/procesar-correo.lock php vendor/drush/drush/drush.php cron
+```
+
+(con PHP 8.4: `/opt/cpanel/ea-php84/root/usr/bin/php`).
 
 ## Auditoría
 

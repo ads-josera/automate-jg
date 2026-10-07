@@ -24,10 +24,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Parses Excel rows and creates auditable constancia records.
  *
+ * Processed only by `drush aseguramiento:procesar-correo` (no "cron" key):
+ * that command drops an item that fails for good, while Drupal's cron would
+ * put it back and retry it on every run, forever.
+ *
  * @QueueWorker(
  *   id = "aseguramiento_excel_parsing",
- *   title = @Translation("Aseguramiento Excel parsing"),
- *   cron = {"time" = 90}
+ *   title = @Translation("Aseguramiento Excel parsing")
  * )
  */
 final class ExcelParsingQueueWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {

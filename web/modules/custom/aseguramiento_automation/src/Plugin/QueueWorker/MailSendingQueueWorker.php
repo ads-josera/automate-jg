@@ -25,10 +25,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * and what to fix in the files that failed) or, for items queued before
  * batches existed, a single "constancia_id".
  *
+ * Processed only by `drush aseguramiento:procesar-correo` (no "cron" key):
+ * that command drops an item that fails for good, while Drupal's cron would
+ * put it back and retry it on every run, forever.
+ *
  * @QueueWorker(
  *   id = "aseguramiento_mail_sending",
- *   title = @Translation("Aseguramiento mail sending"),
- *   cron = {"time" = 90}
+ *   title = @Translation("Aseguramiento mail sending")
  * )
  */
 final class MailSendingQueueWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {

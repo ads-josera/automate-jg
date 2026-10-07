@@ -19,10 +19,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Generates final PDFs from corporate base templates.
  *
+ * Processed only by `drush aseguramiento:procesar-correo` (no "cron" key):
+ * that command drops an item that fails for good, while Drupal's cron would
+ * put it back and retry it on every run, forever.
+ *
  * @QueueWorker(
  *   id = "aseguramiento_pdf_generation",
- *   title = @Translation("Aseguramiento PDF generation"),
- *   cron = {"time" = 120}
+ *   title = @Translation("Aseguramiento PDF generation")
  * )
  */
 final class PdfGenerationQueueWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {

@@ -14,12 +14,10 @@ use Drupal\user\UserInterface;
  * Runtime hooks for Aseguramiento Automation.
  */
 
-/**
- * Implements hook_cron().
- */
-function aseguramiento_automation_cron(): void {
-  \Drupal::service('aseguramiento_automation.cron_subscriber')->pollMailAccounts();
-}
+// No hook_cron(): the mailbox is read only by `drush
+// aseguramiento:procesar-correo`, which the server runs every minute under a
+// lock. Drupal's cron runs once a day for housekeeping only (log purge,
+// expired data); reading the mailbox there too would do it outside that lock.
 
 /**
  * Implements hook_page_attachments().
