@@ -43,3 +43,6 @@
 /scripts/debug_*.php
 
 /docs/*.rtf
+
+# Archivo temporal que crea Excel mientras un libro está abierto.
+~$*

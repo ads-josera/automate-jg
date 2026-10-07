@@ -63,7 +63,7 @@ $check(\Drupal\aseguramiento_automation\Util\DateNormalizer::toIso($row['fecha_i
 $check(\Drupal::service('aseguramiento_automation.validation')->validateRow($row)['valid'], 'La solicitud pasa la validación');
 
 echo PHP_EOL . 'El formato para repartir trae sus ayudas (Acrobat Reader)' . PHP_EOL;
-$form = (string) file_get_contents(DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_rellenable.pdf');
+$form = (string) file_get_contents(DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_rellenable.pdf');
 // TCPDF writes the document script as a UTF-16BE text string.
 $utf16 = static fn(string $text): string => mb_convert_encoding($text, 'UTF-16BE', 'UTF-8');
 $check(str_contains($form, '/JavaScript') && str_contains($form, $utf16('aaMarcarTodos')) && str_contains($form, $utf16('var aaDoc = this;')), 'Script del fondo rojo en obligatorios vacíos (sin depender de "this" dentro de funciones)');
@@ -78,7 +78,7 @@ $check(($row['solicitante'] ?? '') === $expected['solicitante'] && ($row['solici
 echo PHP_EOL . 'Casos que deben rechazarse con un mensaje claro' . PHP_EOL;
 foreach ([
   'F_protegido.pdf' => 'contraseña',
-  '../../../docs/Solicitud_aseguramiento.pdf' => 'no tiene campos rellenables',
+  '../../../docs/diseno/Solicitud_aseguramiento.pdf' => 'no tiene campos rellenables',
 ] as $file => $words) {
   try {
     $parser->parse($dir . $file);
@@ -88,7 +88,7 @@ foreach ([
     $check(str_contains($e->getMessage(), $words), basename($file) . ': "' . $e->getMessage() . '"');
   }
 }
-$blank = $parser->parse(DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_rellenable.pdf')[0];
+$blank = $parser->parse(DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_rellenable.pdf')[0];
 $check(count(array_filter($blank, static fn($v, $k) => $k[0] !== '_' && $v === '', ARRAY_FILTER_USE_BOTH)) === 37, 'El formato en blanco da 37 campos vacíos (más los 2 fijos)');
 
 if ($failures) {

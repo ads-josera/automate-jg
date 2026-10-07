@@ -27,8 +27,8 @@ use Drupal\aseguramiento_automation\Service\ValidationService;
 use Drupal\aseguramiento_automation\Util\SumaAsegurada;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
-$source = DRUPAL_ROOT . '/../docs/Solicitud_aseguramiento.pdf';
-$target = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_rellenable.pdf';
+$source = DRUPAL_ROOT . '/../docs/diseno/Solicitud_aseguramiento.pdf';
+$target = DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_rellenable.pdf';
 
 // Same lists as the Excel form's data validations.
 $lists = [

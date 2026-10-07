@@ -29,7 +29,7 @@ use Drupal\aseguramiento_automation\Service\ProcessedMailRegistry;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPMailer\PHPMailer\PHPMailer;
 
-$template = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
+$template = DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_formato.xlsx';
 $account_id = 'greenmail_lectura';
 $failures = 0;
 $check = static function (bool $ok, string $label) use (&$failures): void {

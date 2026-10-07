@@ -3,7 +3,7 @@
  * Runs the Acrobat scripts of the fillable PDF in a minimal Acrobat model.
  *
  * Acrobat Reader cannot run here, so this executes the very scripts
- * embedded in docs/solicitud_aseguramiento_rellenable.pdf (read from the
+ * embedded in docs/para-entregar/solicitud_aseguramiento_rellenable.pdf (read from the
  * file, not copied) against a fake document: fields with value/fillColor,
  * "this" = document at the top level, and the Validate event Acrobat fires
  * when a field is committed (while the field still holds its old value).
@@ -13,7 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-const pdf = readFileSync(new URL('../docs/solicitud_aseguramiento_rellenable.pdf', import.meta.url));
+const pdf = readFileSync(new URL('../docs/para-entregar/solicitud_aseguramiento_rellenable.pdf', import.meta.url));
 const raw = pdf.toString('latin1');
 
 // Every "/JS (...)" literal string, unescaped and decoded (UTF-16 or bytes).

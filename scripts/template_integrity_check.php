@@ -20,7 +20,7 @@ declare(strict_types=1);
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-$path = $extra[0] ?? DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
+$path = $extra[0] ?? DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_formato.xlsx';
 $book = IOFactory::load($path);
 $form = $book->getSheetByName('Solicitud');
 $data = $book->getSheetByName('Datos');
@@ -89,6 +89,26 @@ $date_ranges = implode(' ', array_keys($dates));
 $check(str_contains($date_ranges, 'J8') && str_contains($date_ranges, 'D23'), 'Validación de fecha en "Fecha" (J8) y "Fecha inicio seguro" (D23)');
 $check(isset($inputs['ref_maritimo'], $inputs['ref_aereo']), 'Incluye las referencias marítima y aérea');
 $check($data->getSheetState() === 'veryHidden', 'La hoja "Datos" sigue oculta');
+// Light blue means "write here": a blue cell the system does not read made
+// clients think it was a field (K48:K50, next to the air references).
+$stray = [];
+$master = [];
+foreach ($form->getMergeCells() as $range) {
+  foreach (Coordinate::extractAllCellReferencesInRange($range) as $ref) {
+    $master[$ref] = explode(':', $range)[0];
+  }
+}
+$input_refs = array_flip($inputs);
+foreach ($form->getRowIterator() as $row) {
+  foreach ($row->getCellIterator() as $cell) {
+    $ref = $cell->getCoordinate();
+    $fill = $form->getStyle($ref)->getFill();
+    if ($fill->getFillType() === 'solid' && strtoupper($fill->getStartColor()->getRGB()) === 'EAF4FF' && !isset($input_refs[$master[$ref] ?? $ref])) {
+      $stray[] = $ref;
+    }
+  }
+}
+$check($stray === [], 'Solo las celdas de captura van en azul' . ($stray ? ' (azules que no se leen: ' . implode(', ', $stray) . '; corre build_excel_form.php)' : ''));
 
 if ($failures) {
   throw new \RuntimeException("RESULTADO: {$failures} comprobaciones fallaron. No repartas este formato.");

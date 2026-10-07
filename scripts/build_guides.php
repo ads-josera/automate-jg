@@ -4,12 +4,12 @@
  * @file
  * Builds the two user guides on JG Mylard's letterhead.
  *
- * - docs/guia_usuario_aseguramiento.pdf: for clients (how to fill in and send
+ * - docs/para-entregar/guia_usuario_aseguramiento.pdf: for clients (how to fill in and send
  *   a request, what they receive, how to correct).
- * - docs/guia_gestor_aseguramiento.pdf: for the team (panel, statuses, what
+ * - docs/para-entregar/guia_gestor_aseguramiento.pdf: for the team (panel, statuses, what
  *   to do with each error, the emails they receive).
  *
- * The letterhead (docs/Guia-para-el-*.pdf, from the Illustrator files) is the
+ * The letterhead (docs/diseno/Guia-para-el-*.pdf, from the Illustrator files) is the
  * background of every page. The amount limits are read from the settings,
  * so run this again whenever they change:
  * @code
@@ -21,7 +21,8 @@ declare(strict_types=1);
 
 use setasign\Fpdi\Tcpdf\Fpdi;
 
-$docs = DRUPAL_ROOT . '/../docs/';
+$design = DRUPAL_ROOT . '/../docs/diseno/';
+$deliver = DRUPAL_ROOT . '/../docs/para-entregar/';
 $limits = \Drupal::service('aseguramiento_automation.amount_limits');
 $usd = $limits->forCurrency('USD');
 $mxn = $limits->forCurrency('MXN');
@@ -278,7 +279,7 @@ $user = $css
     . '<span style="font-family:dejavusans;">&#9744;</span>&nbsp; El correo va a solicitud@jgmylard.work con el asunto «Solicitud de aseguramiento».'
   ));
 
-$render($docs . 'Guia-para-el-usuario.pdf', 'Guía para el usuario: solicitud de aseguramiento', $user, $docs . 'guia_usuario_aseguramiento.pdf');
+$render($design . 'Guia-para-el-usuario.pdf', 'Guía para el usuario: solicitud de aseguramiento', $user, $deliver . 'guia_usuario_aseguramiento.pdf');
 
 // ---------------------------------------------------------------------------
 // Guía para el gestor (equipo de JG Mylard).
@@ -379,6 +380,6 @@ $gestor = $css
   . '</ul>'
   . '<p class="muted">Para los clientes existe la «Guía para el usuario», con los pasos para llenar y enviar su solicitud.</p>');
 
-$render($docs . 'Guia-para-el-gestor.pdf', 'Guía para el gestor: panel de constancias de aseguramiento', $gestor, $docs . 'guia_gestor_aseguramiento.pdf');
+$render($design . 'Guia-para-el-gestor.pdf', 'Guía para el gestor: panel de constancias de aseguramiento', $gestor, $deliver . 'guia_gestor_aseguramiento.pdf');
 
-echo 'Guías generadas: docs/guia_usuario_aseguramiento.pdf y docs/guia_gestor_aseguramiento.pdf' . PHP_EOL;
+echo 'Guías generadas en docs/para-entregar/: guia_usuario_aseguramiento.pdf y guia_gestor_aseguramiento.pdf' . PHP_EOL;

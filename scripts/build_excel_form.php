@@ -10,6 +10,8 @@
  *   outside the limits of the chosen currency. The limits are read from the
  *   settings, the same ones the server validates with.
  * - Each amount only accepts numbers of 0 or more.
+ * - Only input cells keep the light blue of "write here": a blue cell the
+ *   system does not read (K48:K50 had it) turns white.
  *
  * Idempotent: run it again after changing the limits, then check it with
  * scripts/template_integrity_check.php before handing the form out:
@@ -20,13 +22,14 @@
 
 declare(strict_types=1);
 
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Protection;
 
-$path = DRUPAL_ROOT . '/../docs/solicitud_aseguramiento_formato.xlsx';
+$path = DRUPAL_ROOT . '/../docs/para-entregar/solicitud_aseguramiento_formato.xlsx';
 $limits = \Drupal::service('aseguramiento_automation.amount_limits');
 $usd = $limits->forCurrency('USD');
 $mxn = $limits->forCurrency('MXN');
@@ -92,6 +95,31 @@ foreach ($components as $cell) {
   $validation = $sheet->getDataValidation($cell);
   $validation->setErrorTitle('Monto no válido');
   $validation->setError('Captura una cantidad igual o mayor a 0, por ejemplo 150000.00.');
+}
+
+// 5. Light blue only where the client writes: the cells the hidden "Datos"
+// sheet reads (a merged range counts by its first cell).
+$data = $book->getSheetByName('Datos');
+$inputs = [];
+for ($col = 1; $col <= Coordinate::columnIndexFromString($data->getHighestColumn()); $col++) {
+  if (preg_match('/Solicitud!\$?([A-Z]+)\$?(\d+)/', (string) $data->getCell(Coordinate::stringFromColumnIndex($col) . '2')->getValue(), $m)) {
+    $inputs[$m[1] . $m[2]] = TRUE;
+  }
+}
+$master = [];
+foreach ($sheet->getMergeCells() as $range) {
+  foreach (Coordinate::extractAllCellReferencesInRange($range) as $ref) {
+    $master[$ref] = explode(':', $range)[0];
+  }
+}
+foreach ($sheet->getRowIterator() as $row) {
+  foreach ($row->getCellIterator() as $cell) {
+    $ref = $cell->getCoordinate();
+    $fill = $sheet->getStyle($ref)->getFill();
+    if ($fill->getFillType() === Fill::FILL_SOLID && strtoupper($fill->getStartColor()->getRGB()) === 'EAF4FF' && !isset($inputs[$master[$ref] ?? $ref])) {
+      $fill->getStartColor()->setRGB('FFFFFF');
+    }
+  }
 }
 
 IOFactory::createWriter($book, 'Xlsx')->save($path);

@@ -10,7 +10,7 @@ pypdf and pikepdf installed (local only; nothing of this runs on the server):
 D (macOS Vista Previa / PDFKit) is made with llenar_vista_previa.swift:
 
     swiftc -O -o /tmp/llenar scripts/fixtures/pdf-form/llenar_vista_previa.swift
-    /tmp/llenar docs/solicitud_aseguramiento_rellenable.pdf \
+    /tmp/llenar docs/para-entregar/solicitud_aseguramiento_rellenable.pdf \
       scripts/fixtures/pdf-form/D_vista_previa_mac.pdf scripts/fixtures/pdf-form/valores.json
 """
 import json
@@ -19,7 +19,7 @@ import re
 import pikepdf
 import pypdf
 
-FORM = 'docs/solicitud_aseguramiento_rellenable.pdf'
+FORM = 'docs/para-entregar/solicitud_aseguramiento_rellenable.pdf'
 OUT = 'scripts/fixtures/pdf-form/'
 values = json.load(open(OUT + 'valores.json', encoding='utf-8'))
 

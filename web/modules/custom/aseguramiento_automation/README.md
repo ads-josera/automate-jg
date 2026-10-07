@@ -138,14 +138,14 @@ Soporta host, puerto, cifrado, usuario, contraseña y carpeta. Usa la librería 
 
 ## Formato de solicitud en PDF rellenable
 
-Además del Excel, el cliente puede enviar el formato en PDF (`docs/solicitud_aseguramiento_rellenable.pdf`). Sus campos se llaman igual que las claves de la hoja oculta "Datos" del Excel (`solicitante`, `beneficiario_nombre`, …), así que se valida exactamente igual; lleva además dos campos fijos ocultos (`aseguradora`, `tipo_documento`) que eligen la plantilla de la constancia.
+Además del Excel, el cliente puede enviar el formato en PDF (`docs/para-entregar/solicitud_aseguramiento_rellenable.pdf`). Sus campos se llaman igual que las claves de la hoja oculta "Datos" del Excel (`solicitante`, `beneficiario_nombre`, …), así que se valida exactamente igual; lleva además dos campos fijos ocultos (`aseguradora`, `tipo_documento`) que eligen la plantilla de la constancia.
 
-- **Diseño:** `docs/Solicitud_aseguramiento.pdf`, exportado de Illustrator sin campos (cajas azul claro vacías, asterisco rojo en obligatorios).
+- **Diseño:** `docs/diseno/Solicitud_aseguramiento.pdf`, exportado de Illustrator sin campos (cajas azul claro vacías, asterisco rojo en obligatorios).
 - **Generar el formato:** `ddev drush php:script scripts/build_pdf_form.php`. Pone un campo sobre cada caja (coordenadas en el script; si el diseño cambia, se vuelven a medir), listas en Moneda / Medio de transporte / Estado / Declaración, formato de fecha y montos, y en Adobe Acrobat Reader fondo rojo mientras un obligatorio esté vacío. Otros visores ignoran esos scripts: quedan el asterisco del diseño y la validación del servidor.
 - **Lectura:** `Pdf\AcroFormReader` (PHP puro, sin pdftk) sigue la estructura del archivo: guardados incrementales (gana el último), flujos de objetos y referencias comprimidas, textos UTF-16/PDFDocEncoding. Un PDF protegido o sin campos se rechaza con un mensaje para el cliente (`RequestFileException`) que llega en la respuesta del lote.
 - **Pruebas:** `scripts/pdf_form_check.php` con PDFs guardados de distintas formas (`scripts/fixtures/pdf-form`, se regeneran con `generar.py`) y el escenario F de `scripts/batch_reply_check.php` (correo con un PDF correcto, uno incompleto y uno protegido).
 - Cada campo tiene texto de ayuda al pasar el puntero (/TU, en UTF-16: "Escribe la fecha, por ejemplo 24/09/2026.", "Obligatorio.", …).
-- Recomendar a los clientes **Adobe Acrobat Reader** para llenarlo. La Vista Previa de Mac lo llena y el sistema lo lee bien, pero no ejecuta los scripts (no hay fondo rojo) y al guardar los elimina: **no guardar encima del formato de `docs/`**; llenar siempre una copia.
+- Recomendar a los clientes **Adobe Acrobat Reader** para llenarlo. La Vista Previa de Mac lo llena y el sistema lo lee bien, pero no ejecuta los scripts (no hay fondo rojo) y al guardar los elimina: **no guardar encima del formato de `docs/para-entregar/`**; llenar siempre una copia.
 - Las fechas se aceptan también con el mes en español ("30-octubre-2026", "30 de octubre de 2026", "1-ene-27"), ver `Util\DateNormalizer`.
 
 ## Plantillas PDF
