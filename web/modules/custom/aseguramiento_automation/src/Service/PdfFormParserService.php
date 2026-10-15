@@ -35,7 +35,8 @@ final class PdfFormParserService {
       $this->logger->warning('[Aseguramiento] El PDF no tiene campos rellenables. Archivo: @file', [
         '@file' => basename($real_path),
       ]);
-      throw new RequestFileException('El PDF no tiene campos rellenables. Usa el formato de solicitud en PDF y llénalo con Adobe Acrobat Reader.');
+      // Usually an Excel form saved as PDF (a flat copy of the sheet).
+      throw new RequestFileException('No pudimos leer los datos de este PDF: no tiene campos rellenables. Si llenaste el formato de Excel, envía el archivo .xlsx tal como lo llenaste, sin guardarlo como PDF. Si usaste el formato PDF, llénalo con Adobe Acrobat Reader.');
     }
 
     $this->logger->info('[Aseguramiento] Extracción de datos del PDF completada correctamente. Campos detectados: @count.', [

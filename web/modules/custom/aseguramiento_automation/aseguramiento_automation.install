@@ -310,3 +310,15 @@ function aseguramiento_automation_solicitud_field_names(): array {
     ],
   );
 }
+
+/**
+ * Team domains: from them only request forms are processed.
+ */
+function aseguramiento_automation_update_11014(): string {
+  $config = \Drupal::configFactory()->getEditable('aseguramiento_automation.settings');
+  if ($config->get('internal_sender_domains') !== NULL) {
+    return 'Los dominios del equipo ya estaban configurados; no se cambiaron.';
+  }
+  $config->set('internal_sender_domains', ['jgmylard.net', 'jgmylard.work'])->save();
+  return 'Dominios del equipo: jgmylard.net y jgmylard.work.';
+}

@@ -10,6 +10,7 @@ use Drupal\aseguramiento_automation\Service\MailProviderManagerService;
 use Drupal\aseguramiento_automation\Service\ProcessedMailRegistry;
 use Drupal\aseguramiento_automation\Service\QueueManagerService;
 use Drupal\aseguramiento_automation\Service\SolicitudBatchService;
+use Drupal\aseguramiento_automation\Service\TeamMailFilter;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
@@ -41,6 +42,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
     private readonly MailService $mailService,
     private readonly SolicitudBatchService $batchService,
     private readonly ProcessedMailRegistry $registry,
+    private readonly TeamMailFilter $teamMailFilter,
     private readonly LoggerInterface $logger,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -58,6 +60,7 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
       $container->get('aseguramiento_automation.mail'),
       $container->get('aseguramiento_automation.solicitud_batch'),
       $container->get('aseguramiento_automation.processed_mail'),
+      $container->get('aseguramiento_automation.team_mail_filter'),
       $container->get('logger.channel.aseguramiento_automation'),
     );
   }
@@ -118,6 +121,29 @@ final class EmailProcessingQueueWorker extends QueueWorkerBase implements Contai
         '@excel' => $excel_count,
         '@pdf' => $pdf_count,
       ]);
+      // From the team only request forms count (see TeamMailFilter): an
+      // invoice sent with "reply all" to a client is not a request.
+      if ($this->teamMailFilter->isTeamSender((string) ($message['from'] ?? ''), $settings)) {
+        [$files, $others] = $this->teamMailFilter->splitRequestForms($files);
+        if ($others !== []) {
+          $this->teamMailFilter->discard($others);
+          $this->logger->info('[Aseguramiento] Correo del equipo (@from): se ignoraron @n archivos que no son formato de solicitud (@names).', [
+            '@from' => $message['from'] ?? '',
+            '@n' => count($others),
+            '@names' => implode(', ', array_column($others, 'name')),
+          ]);
+        }
+        if ($files === []) {
+          $provider->markProcessed($account, $message);
+          $this->registry->done($account, $message, 'team_no_request');
+          $provider->moveMessage($account, $message, (string) ($account['processed_folder'] ?? $settings['default_processed_folder'] ?? 'Processed'));
+          $this->logger->info('[Aseguramiento] Correo del equipo sin formato de solicitud; se archivó sin responder. Remitente: @from. Asunto: @subject.', [
+            '@from' => $message['from'] ?? '',
+            '@subject' => $message['subject'] ?? '',
+          ]);
+          return;
+        }
+      }
       // The team gets a summary of the result once the client is answered
       // (MailSendingQueueWorker). With no request files there will be no
       // answer, so it is told now.

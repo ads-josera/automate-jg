@@ -73,6 +73,12 @@ final class AutomationSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Una palabra por línea. Dejar vacío para permitir cualquier asunto.'),
       '#default_value' => implode("\n", (array) $config->get('required_subject_keywords')),
     ];
+    $form['filters']['internal_sender_domains'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Dominios del equipo'),
+      '#description' => $this->t('Un dominio por línea. De estos remitentes solo se procesan los formatos de solicitud (Excel o PDF rellenable); facturas, respuestas y correos sin formato se archivan sin respuesta ni resumen. Así, «Responder a todos» a un cliente no genera avisos.'),
+      '#default_value' => implode("\n", (array) $config->get('internal_sender_domains')),
+    ];
 
     $form['amount_limits'] = [
       '#type' => 'details',
@@ -242,6 +248,7 @@ final class AutomationSettingsForm extends ConfigFormBase {
       ->set('debug_mode', (bool) $form_state->getValue('debug_mode'))
       ->set('allowed_sender_domains', $this->linesToList((string) $form_state->getValue('allowed_sender_domains')))
       ->set('required_subject_keywords', $this->linesToList((string) $form_state->getValue('required_subject_keywords')))
+      ->set('internal_sender_domains', array_map('strtolower', $this->linesToList((string) $form_state->getValue('internal_sender_domains'))))
       ->set('storage_private_scheme', $form_state->getValue('storage_private_scheme'))
       ->set('email_reply_subject', $form_state->getValue('email_reply_subject'))
       ->set('email_reply_body', str_replace(["\r\n", "\r"], "\n", (string) $form_state->getValue('email_reply_body')))

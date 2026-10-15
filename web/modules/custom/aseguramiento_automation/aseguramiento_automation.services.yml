@@ -30,6 +30,12 @@ services:
     arguments:
       - '@keyvalue.expirable'
 
+  aseguramiento_automation.team_mail_filter:
+    class: Drupal\aseguramiento_automation\Service\TeamMailFilter
+    arguments:
+      - '@file_system'
+      - '@entity_type.manager'
+
   aseguramiento_automation.email_parser:
     class: Drupal\aseguramiento_automation\Service\EmailParserService
     arguments:

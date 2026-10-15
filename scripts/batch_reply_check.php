@@ -16,6 +16,10 @@
  * - answering our reply with the corrected file: the old constancia becomes
  *   "Corregida" and is linked to the new one; a new email (not an answer)
  *   or an ambiguous answer links nothing;
+ * - emails from the team (internal domains): an invoice sent with "reply
+ *   all", or a reply with no files, is archived with no reply and no team
+ *   summary; an official Excel from the team is still processed and the
+ *   invoice next to it ignored; a client's flat PDF still gets its answer;
  * - running again sends nothing more.
  *
  * Usage (local DDEV only, needs the GreenMail container; see
@@ -61,7 +65,7 @@ $excel = static function (string $name, array $overrides) use ($template): strin
   return $path;
 };
 
-$send = static function (array $attachments, string $message_id = '', array $answers = []) use ($client): void {
+$send = static function (array $attachments, string $message_id = '', array $answers = [], string $from = '', string $subject = 'Solicitud de aseguramiento prueba lote') use ($client): void {
   $mailer = new PHPMailer(TRUE);
   if ($message_id !== '') {
     $mailer->MessageID = '<' . $message_id . '>';
@@ -77,9 +81,9 @@ $send = static function (array $attachments, string $message_id = '', array $ans
   $mailer->Host = 'greenmail-jg';
   $mailer->Port = 3025;
   $mailer->SMTPAutoTLS = FALSE;
-  $mailer->setFrom($client);
+  $mailer->setFrom($from !== '' ? $from : $client);
   $mailer->addAddress('buzon@local.test');
-  $mailer->Subject = 'Solicitud de aseguramiento prueba lote';
+  $mailer->Subject = $subject;
   $mailer->Body = 'Solicitud';
   foreach ($attachments as $name => $path) {
     $mailer->addAttachment($path, $name);
@@ -248,6 +252,57 @@ $k_old = array_values(array_filter(array_merge($constancias->loadByProperties(['
 $new_batch = $k_new ? \Drupal::service('aseguramiento_automation.solicitud_batch')->get((string) $k_new[0]->get('lote')->value) : NULL;
 $check(($new_batch['corrige_lote'] ?? '') !== '', 'Se reconoce que responde al correo anterior (solo por References)');
 $check(count($k_new) === 2 && count($k_old) === 2 && array_unique(array_map(static fn($c): string => $c->get('status')->value, $k_old)) === ['error'], 'Sin forma segura de emparejar: las dos anteriores siguen en error');
+
+// Every email Mailpit holds, with recipients (To and Bcc) and attachments.
+$allMail = static function () use ($mailpit): array {
+  $out = [];
+  foreach ($mailpit()['messages'] ?? [] as $message) {
+    $detail = $mailpit('GET', '/api/v1/message/' . $message['ID']);
+    $out[] = [
+      'subject' => $message['Subject'],
+      'to' => array_column($message['To'], 'Address'),
+      'attachments' => array_column($detail['Attachments'] ?? [], 'FileName'),
+      'html' => (string) ($detail['HTML'] ?? ''),
+    ];
+  }
+  return $out;
+};
+$areli = 'arelirosales@jgmylard.net';
+$invoice = DRUPAL_ROOT . '/../docs/diseno/Solicitud_aseguramiento.pdf';
+$count_constancias = static fn(): int => (int) $constancias->getQuery()->accessCheck(FALSE)->count()->execute();
+
+echo PHP_EOL . 'Escenario O: el equipo responde a todos con una factura' . PHP_EOL;
+$mailpit('DELETE');
+$before = $count_constancias();
+$send(['JMY210610CM4FF_--0000020956.pdf' => $invoice], '', [], $areli, 'FACTURA 20956///CONSTANCIA 1283// solicitud de seguro');
+$run();
+$check($allMail() === [], 'No sale ningún correo: ni respuesta a Areli ni resumen (salieron ' . count($allMail()) . ')');
+$check($count_constancias() === $before, 'No se crea ninguna constancia');
+
+echo PHP_EOL . 'Escenario P: el equipo responde a una notificación, sin archivos' . PHP_EOL;
+$mailpit('DELETE');
+$send([], '', [], $areli, 'RE: Solicitud de cliente@example.com: 2 constancias');
+$run();
+$check($allMail() === [], 'No sale ningún correo (antes llegaba "sin archivos de solicitud")');
+
+echo PHP_EOL . 'Escenario Q: el equipo reenvía el Excel de un cliente junto con una factura' . PHP_EOL;
+$mailpit('DELETE');
+$send(['solicitud_cliente.xlsx' => $excel('Cliente Q', []), 'factura.pdf' => $invoice], '', [], $areli, 'Fwd: Solicitud de aseguramiento');
+$run();
+$mails = $allMail();
+$reply = array_values(array_filter($mails, static fn(array $m): bool => in_array($areli, $m['to'], TRUE)))[0] ?? ['attachments' => [], 'html' => ''];
+$check(count($reply['attachments']) === 1 && str_starts_with($reply['attachments'][0] ?? '', 'AA-'), 'El Excel se procesa: llega 1 constancia (' . implode(', ', $reply['attachments']) . ')');
+$summary = array_values(array_filter($mails, static fn(array $m): bool => $team !== [] && array_intersect($team, $m['to']) !== []))[0] ?? ['html' => '', 'attachments' => []];
+$check($team === [] || (str_contains($summary['html'], 'solicitud_cliente.xlsx') && !str_contains($summary['html'], 'factura.pdf')), 'El resumen solo menciona el Excel; la factura se ignora');
+$check(!str_contains(implode(' ', array_column($mails, 'html')), 'no tiene campos rellenables'), 'Nadie recibe error por la factura');
+
+echo PHP_EOL . 'Escenario R: un CLIENTE manda un PDF plano (Excel guardado como PDF)' . PHP_EOL;
+$mailpit('DELETE');
+$send(['mi_solicitud.pdf' => $invoice]);
+$run();
+$mails = $toClient();
+$check(count($mails) === 1, 'El cliente sí recibe respuesta (recibió ' . count($mails) . ')');
+$check(str_contains($mails[0]['html'] ?? '', 'envía el archivo .xlsx tal como lo llenaste'), 'Le dice que mande el .xlsx en lugar del PDF');
 
 echo PHP_EOL . 'Escenario C: solo un Excel con error de fecha' . PHP_EOL;
 $mailpit('DELETE');

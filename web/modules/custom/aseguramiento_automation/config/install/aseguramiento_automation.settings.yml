@@ -4,6 +4,9 @@ queue_batch_size: 50
 debug_mode: false
 allowed_sender_domains: []
 required_subject_keywords: []
+internal_sender_domains:
+  - jgmylard.net
+  - jgmylard.work
 amount_limits:
   usd_min: 25
   usd_max: 600000

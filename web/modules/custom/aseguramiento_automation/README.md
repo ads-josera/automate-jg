@@ -65,6 +65,7 @@ Cada correo recibido forma un **lote** (`SolicitudBatchService`, almacén key-va
 - Problemas internos (sin plantilla, fallo al generar el PDF): se avisa que no hay nada que corregir y que el equipo dará seguimiento.
 - La respuesta espera a que todo el lote termine (reintento diferido de la cola); tras 30 minutos responde con lo que haya. Nunca responde dos veces el mismo lote. Si el envío falla, reintenta hasta 5 veces.
 - **Corrección del cliente → constancia "Corregida"** (update 11013). Cada respuesta sale con un Message-ID elegido por nosotros, y el índice de hilos (`aseguramiento_automation.hilo`, 30 días) recuerda a qué lote pertenecen ese Message-ID y el del correo del cliente. Cuando el cliente **responde** a ese correo con el archivo corregido, sus encabezados In-Reply-To/References identifican el lote anterior (`corrige_lote`). Al responder, `ConstanciaCorrectionService::link()` empareja cada constancia nueva con una anterior en error. El orden es: mismo nombre de archivo; si no, mismo beneficiario; si no, cuando solo queda una de cada lado. La anterior pasa a `corrected` con `corregida_por`, y la nueva queda con `corrige_a`. El resumen al encargado dice "Constancia AA-nueva (corrige AA-anterior)". Lo que no se puede emparejar con seguridad **no se adivina**: sigue en error y el equipo lo cierra desde el detalle con **Marcar como resuelta**. Ese botón requiere el permiso de reprocesar, solo aparece en constancias con error, pide una nota opcional, no envía nada al cliente y deja quién, cuándo y la nota en la bitácora. Si el cliente manda el corregido en un correo nuevo (no como respuesta), tampoco se enlaza.
+- **Correos del equipo** (`internal_sender_domains`, por defecto jgmylard.net y jgmylard.work; update 11014). El equipo contesta a los clientes con «Responder a todos» y el buzón de solicitudes va en el hilo, así que llegaban facturas y respuestas que el sistema contestaba como solicitudes con error (4 en la primera semana de uso real). De un remitente del equipo, `TeamMailFilter` solo deja los formatos de solicitud: un Excel con la hoja «Datos» o un PDF con campos. Los demás archivos se borran. Si no queda ninguno, el correo se archiva sin respuesta y sin resumen. Un Excel oficial enviado por el equipo se procesa igual que el de un cliente. A los clientes no les cambia nada.
 - Prueba de punta a punta: `scripts/batch_reply_check.php` (GreenMail + Mailpit).
 
 Servicios principales:
@@ -84,6 +85,7 @@ Servicios principales:
 - `QueueManagerService`
 - `SolicitudBatchService`
 - `ConstanciaCorrectionService`
+- `TeamMailFilter`
 
 ## Providers de correo
 

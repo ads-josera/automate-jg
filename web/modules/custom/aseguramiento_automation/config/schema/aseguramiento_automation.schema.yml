@@ -24,6 +24,11 @@ aseguramiento_automation.settings:
       label: 'Required subject keywords'
       sequence:
         type: string
+    internal_sender_domains:
+      type: sequence
+      label: 'Team sender domains (only request forms are processed)'
+      sequence:
+        type: string
     amount_limits:
       type: mapping
       label: 'Allowed insured total per currency (inclusive)'

@@ -196,7 +196,7 @@ $messages = [
   ['«… supera el máximo …» o «… es menor que el mínimo …»', 'Revise los montos: la suma asegurada total debe quedar dentro del rango permitido.'],
   ['«No pudimos leer el archivo»', 'El archivo está dañado o no es el formato. Vuelva a llenar el formato original y guárdelo como .xlsx.'],
   ['«El PDF está protegido con contraseña»', 'Guarde el PDF sin contraseña y envíelo de nuevo.'],
-  ['«El PDF no tiene campos rellenables»', 'Si llenó el Excel y lo guardó como PDF, envíe el archivo .xlsx. Si usó el formato PDF, llénelo con Adobe Acrobat Reader.'],
+  ['«No pudimos leer los datos de este PDF: no tiene campos rellenables»', 'Si llenó el Excel y lo guardó como PDF, envíe el archivo .xlsx tal como lo llenó. Si usó el formato PDF, llénelo con Adobe Acrobat Reader.'],
 ];
 
 $user = $css
@@ -370,7 +370,15 @@ $gestor = $css
   . '<li>Si todo está bien y no aparece en el panel, pídele que lo reenvíe o avisa al administrador para revisar el buzón.</li>'
   . '</ol>')
 
-  . $section('<h2><span class="num">10.</span> Reglas del formato, para resolver dudas</h2>'
+  . $section('<h2><span class="num">10.</span> Correos del equipo</h2>'
+  . '<p>El sistema reconoce los correos que envía el equipo (dominios jgmylard.net y jgmylard.work) y de ellos <b>solo procesa los formatos de solicitud</b>: el Excel oficial (.xlsx) o el PDF rellenable.</p>'
+  . '<ul>'
+  . '<li><b>Puedes usar «Responder a todos»</b> con un cliente aunque solicitud@jgmylard.work vaya en el correo. Las facturas, las respuestas y los correos sin formato se archivan sin respuesta y sin resumen.</li>'
+  . '<li><b>Si generas una constancia por un cliente</b>, envía el formato oficial lleno desde tu correo. Se procesa igual que el de un cliente y la constancia te llega a ti para reenviarla.</li>'
+  . '<li>Si desde tu correo envías un archivo que no es el formato (por ejemplo, un Excel guardado como PDF), <b>el sistema no responde</b>. Revisa que sea el .xlsx o el PDF rellenable.</li>'
+  . '</ul>')
+
+  . $section('<h2><span class="num">11.</span> Reglas del formato, para resolver dudas</h2>'
   . '<ul>'
   . '<li>Obligatorios (en rojo): Solicitante, Beneficiario (nombre), Mercancía asegurada, Fecha inicio seguro, Ciudad de origen, Ciudad de destino, Medio de transporte, Moneda y Valor factura.</li>'
   . '<li>Fecha como día/mes/año (24/09/2026). Moneda: USD o PESOS. Montos: números de 0 o más.</li>'
